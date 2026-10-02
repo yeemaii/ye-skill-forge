@@ -1,7 +1,7 @@
 interface:
   display_name: "Ye Skill Forge"
-  short_description: "中文优先地创建、评测、交付和维护 agent skill"
-  default_prompt: "使用 $ye-skill-forge 创建、审查、改进或交付这个可复用 skill，并保留可核查证据。"
+  short_description: "从根问题到单 Skill 或多 Skill 包的设计、验证和进化"
+  default_prompt: "使用 $ye-skill-forge 先澄清根问题，再创建、审查、组合、改进或交付可复用 Skill，并保留可核查证据。"
 compatibility:
   canonical_format: "agent-skills"
   adapter_targets:

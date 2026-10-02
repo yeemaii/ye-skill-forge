@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "package_type": "skill-family",
+  "name": "research-workbench",
+  "version": "1.0.0",
+  "router": "router",
+  "children": [
+    {"name": "source-triage", "path": "skills/source-triage"},
+    {"name": "evidence-synthesis", "path": "skills/evidence-synthesis"}
+  ],
+  "shared": ["shared/evidence-schema.md"],
+  "contracts": {
+    "handoff": {
+      "input": "request and source context",
+      "output": "child result and citations",
+      "state": "selected child, assumptions, evidence status"
+    }
+  },
+  "routing": {
+    "rules": [
+      {"target": "source-triage", "when": "筛选、去重或标注研究来源"},
+      {"target": "evidence-synthesis", "when": "比较来源并形成带引用的综合结果"}
+    ]
+  }
+}

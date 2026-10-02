@@ -1,7 +1,7 @@
 {
   "name": "ye-skill-forge",
-  "version": "1.0.0",
-  "description": "中文优先、可独立运行的 agent skill 全生命周期工程系统：创建、改进、评测、信任、编译、打包、安装模拟、升级、注册审计、遥测漂移和发布门禁。",
+  "version": "2.0.0",
+  "description": "从根问题到可复用 Agent Skill 或多 Skill 包的元设计与工程系统：需求澄清、构建、审查、编排、交付和证据驱动进化。",
   "author": "Ye",
   "owner": "Ye",
   "updated_at": "2026-10-02",
@@ -20,7 +20,8 @@
     "create-skill", "evaluate-skill", "improve-skill", "validate-skill",
     "skill-ir", "trigger-eval", "output-eval", "trust-audit", "compile-targets",
     "package", "install-simulation", "upgrade-check", "registry-audit",
-    "telemetry-drift", "review-gates", "release-check"
+    "telemetry-drift", "review-gates", "release-check", "intent-clarification",
+    "skill-package", "package-scaffold", "route-evaluation", "handoff-contract", "evidence-evolution", "evolution-preview", "evolution-apply", "evolution-rollback", "package-review"
   ],
   "platforms": {
     "openai": "源 skill 加目标适配元数据；需在目标客户端复测运行时行为",

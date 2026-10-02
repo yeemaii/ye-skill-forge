@@ -10,6 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from core.feedback_parser import FeedbackParser
+from core.intent import clarify
+from core.package import create_package_scaffold, handoff_check, route_eval, validate_package
+from core.evolution import build_evidence_packet, record_evolution, evolution_summary
 from core.generator import generate_frontmatter, generate_interface, generate_manifest, generate_skill, save_skill
 from core.skill_utils import load_skill, validate_skill
 from scripts.create import create_package
@@ -47,6 +50,79 @@ def create_sample(root, with_cases=False):
 
 
 class SkillForgeTests(unittest.TestCase):
+    def test_intent_keeps_root_unconfirmed_and_limits_questions(self):
+        result = clarify({"idea": "做一个研究资料 skill"})
+        self.assertEqual(result["next_action"], "clarify")
+        self.assertEqual(result["questions"][0]["field"], "root_problem")
+        self.assertLessEqual(len(result["questions"]), 2)
+
+    def test_intent_selects_skill_family_for_composition(self):
+        result = clarify({
+            "root_problem": "减少研究流程中的返工",
+            "root_confirmed": True,
+            "target_user": "研究员",
+            "job": "处理资料",
+            "inputs": ["资料"],
+            "outputs": ["证据表"],
+            "boundaries": ["不替用户下结论"],
+            "success_signals": ["每条结论可追溯"],
+            "components": ["检索", "综合"],
+            "composition": {"router": "router"},
+        })
+        self.assertEqual(result["design_pattern"], "skill-family")
+
+    def test_skill_package_checks_router_children_and_handoff(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "research-pack"
+            router = root / "router"
+            child = root / "skills" / "research-notes"
+            router.mkdir(parents=True)
+            child.mkdir(parents=True)
+            router.joinpath("SKILL.md").write_text("---\nname: research-router\ndescription: Route research tasks.\n---\n# Router\n\n## Workflow\nRoute only.\n", encoding="utf-8")
+            create_sample(root / "seed")
+            source = root / "seed" / "note-cleanup"
+            for path in source.iterdir():
+                if path.is_file():
+                    child.joinpath(path.name).write_bytes(path.read_bytes())
+            manifest = {
+                "package_type": "skill-family",
+                "name": "research-pack",
+                "router": "router",
+                "children": [{"name": "note-cleanup", "path": "skills/research-notes"}],
+                "shared": [],
+                "contracts": {"handoff": {"input": "request", "output": "result", "state": "context"}},
+                "routing": {"rules": [{"target": "note-cleanup", "when": "整理研究笔记"}]},
+            }
+            root.joinpath("package.json").write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+            root.joinpath("evals").mkdir()
+            root.joinpath("evals/route_cases.json").write_text(json.dumps([{"input": "整理研究笔记", "expected": "note-cleanup"}], ensure_ascii=False), encoding="utf-8")
+            self.assertTrue(validate_package(root)["ok"])
+            self.assertTrue(route_eval(root)["ok"])
+            self.assertTrue(handoff_check(root)["ok"])
+
+    def test_package_scaffold_is_atomic_and_structurally_checkable(self):
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "demo-family"
+            created = create_package_scaffold("demo-family", target, ["alpha", "beta"])
+            self.assertTrue(created["ok"])
+            self.assertTrue(validate_package(target)["ok"])
+            with self.assertRaises(FileExistsError):
+                create_package_scaffold("demo-family", target, ["alpha"])
+
+    def test_evolution_records_proposal_without_editing_skill(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = create_sample(Path(temp))
+            before = (root / "SKILL.md").read_text(encoding="utf-8")
+            feedback = FeedbackParser().parse("问题：输出太啰嗦")
+            packet = build_evidence_packet(root, feedback, [{"type": "output_too_verbose"}])
+            recorded = record_evolution(root, packet)
+            self.assertTrue(recorded["ok"])
+            self.assertEqual(packet["deployment_status"], "provisional")
+            self.assertIn("nearest_assets", packet)
+            self.assertIn(packet["asset_action"], {"create", "merge", "discard"})
+            self.assertEqual((root / "SKILL.md").read_text(encoding="utf-8"), before)
+            self.assertEqual(evolution_summary(root)["records"], 1)
+
     def test_generated_frontmatter_is_valid_yaml_with_quoted_values(self):
         data = sample_data()
         parsed = yaml.safe_load(generate_frontmatter(data).split("---", 2)[1])

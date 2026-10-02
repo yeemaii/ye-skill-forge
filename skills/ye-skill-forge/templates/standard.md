@@ -4,8 +4,19 @@
 ## 目的 / Purpose
 {job_description}
 
+## 根问题与使用者 / Root problem and user
+- 根问题：{root_problem}
+- 使用者：{target_user}
+
 ## 何时使用 / When to use
-用于上面描述的重复任务；不要用它直接执行另一个 skill 的业务任务。
+当请求符合上面的职责、输入和触发边界时使用；相邻但职责不同的请求按下方边界处理。
+
+## 触发与近邻边界 / Routing boundary
+触发示例：
+{trigger_examples}
+
+不要触发的近邻请求：
+{near_neighbors}
 
 ## 输入 / Inputs
 {input_description}
@@ -24,10 +35,13 @@
 {exclusions}
 
 ## 质量检查 / Quality checks
-{quality_standards}
+{success_signals}
 
 ## 失败处理 / Failure handling
 缺少必要信息时，只追问会改变结果的细节。标明假设，并区分未知信息与已验证事实。
 
 ## 资源 / Resources
 {references}
+
+## 组合契约 / Composition contract
+{composition_contract}

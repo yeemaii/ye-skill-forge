@@ -31,9 +31,21 @@ Ye 用来把工作流、SOP、提示词、脚本或已有 skill 整理成可复�
 
 ## 3. 常用工作流
 
+### 从模糊想法开始
+
+先让 Ye 输出意图模型：根问题、目标使用者、重复任务、输入输出、触发/近邻边界和设计模式。每轮提出一到两条高信息量问题；关键职责不清楚时保持 `clarify`，低风险缺口记录为假设后继续。脚本整理字段和问题，领域理解由 agent 完成。
+
+维护者可运行：
+
+```powershell
+python scripts/ye.py intent --idea "我想做一个能处理研究资料的 skill"
+```
+
 ### 创建
 
 说明要重复执行的工作、目标用户、输入、输出和边界。Ye 会先进行需求建模，再选择合适模板，生成 `SKILL.md`、`manifest.json`、`agents/interface.yaml` 和基本评测。
+
+已有简报可保存为 JSON，运行 `intent --brief-file brief.json`，再用 `create --brief-file brief.json --require-ready` 生成。CLI 只提供骨架和已有真实触发样例，agent 继续完成具体领域流程和输出案例；省略准备度检查只能得到 draft。简报格式见 `skills/ye-skill-forge/methods/intent.md`。
 
 ### 审查
 
@@ -46,6 +58,39 @@ Ye 用来把工作流、SOP、提示词、脚本或已有 skill 整理成可复�
 ### 交付准备
 
 当 skill 需要共享、外部发布或进入高风险流程时，可以要求 Ye 依次执行 Skill IR、信任扫描、目标编译、包校验、安装模拟、升级检查和发布门禁。没有运行时或人工证据的部分会标记为缺少证据。
+
+### 多 Skill 包
+
+需要多个独立职责时，先创建包骨架，再补全 Router、子 Skill 和路由样例：
+
+```powershell
+python scripts/ye.py package-init research-workbench --child source-triage --child evidence-synthesis --output-dir ../../.ye/skills/research-workbench
+python scripts/ye.py package-validate ../../.ye/skills/research-workbench
+python scripts/ye.py route-eval ../../.ye/skills/research-workbench
+python scripts/ye.py handoff-check ../../.ye/skills/research-workbench
+python scripts/ye.py review ../../.ye/skills/research-workbench
+```
+
+这些命令假定当前目录为 `skills/ye-skill-forge/`，生成位置在项目 `.ye/` 中。单任务多个步骤使用一个入口的 workflow-pack，独立职责才拆为 family。路由案例包括正例、包外负例、歧义和有序执行计划；Router/子 Skill 的结构通过不能代表真实路由准确率。
+
+### 反馈进化
+
+`improve` 只生成提案；`evolve record` 追加 evidence packet，不会悄悄修改 Skill：
+
+```powershell
+python scripts/ye.py evolve <skill-dir> record --feedback "问题：输出遗漏来源"
+python scripts/ye.py evolve <skill-dir> summary
+```
+
+已授权的改进继续应用到文件。受控入口默认只预览：
+
+```powershell
+python scripts/ye.py evolve <skill-dir> apply --packet reports/evolution/<proposal>.json --change-file changes.json
+python scripts/ye.py evolve <skill-dir> apply --packet reports/evolution/<proposal>.json --change-file changes.json --evidence-file replay.json --apply
+python scripts/ye.py evolve <skill-dir> rollback --packet reports/evolution/<application>.json
+```
+
+需要回放原失败例、近邻负例和保留行为，并绑定源/候选摘要。应用会备份旧文件，回滚拒绝覆盖后续修改。进化对象既可为生成 Skill，也可为 Ye；修改 Ye 另需已授权的 `--allow-self-edit`。局部应用默认仍为 provisional，不自动同步安装副本或改历史产物。格式和证据限制见 `methods/evolution.md`。
 
 ## 4. 输出怎么看
 
@@ -62,7 +107,8 @@ Ye 用来把工作流、SOP、提示词、脚本或已有 skill 整理成可复�
 
 ```powershell
 python scripts/ye.py --help
-python scripts/ye.py create "会议纪要整理" --slug note-cleanup --job "把会议记录整理为可核查的纪要"
+python scripts/ye.py intent --idea "我想做一个能处理研究资料的 skill"
+python scripts/ye.py create "会议纪要整理" --slug note-cleanup --job "把会议记录整理为可核查的纪要" --output-dir ../../.ye/skills/note-cleanup
 python scripts/ye.py review <skill-dir>
 python scripts/ye.py skill-ir <skill-dir>
 python scripts/ye.py trust <skill-dir>
@@ -81,7 +127,11 @@ python scripts/evaluate.py .
 python scripts/ye.py review .
 ```
 
-脚本默认把报告写入目标目录的 `reports/`，把打包结果写入指定的 `dist/`；原始遥测、秘密、凭据和私有对话不应进入发布包。
+脚本默认把报告写入目标目录的 `reports/`，把打包结果写入指定的 `dist/`；原始遥测、秘密、凭据和私有对话不应进入发布包。本地 .env、虚拟环境和编辑器状态会统一排除；有意分发的 .env.example/sample/template 会检查凭据，保留空值、明确占位符和变量引用。信任扫描的秘密阻断项会阻止编译或归档，但静态扫描不能保证检出所有敏感数据。
+
+编译完整复制运行所需引用、脚本和资产；输出目录在源包内时必须位于 dist/。编译目标子目录非空会拒绝写入，避免旧资源残留。`review` 明确输出 `behavior_verified: false`；production/library/governed 会保留行为证据缺口并阻止严格发布预检，仅凭存在样例不能通过。
+
+触发分组必须是请求字符串或含 input 的对象列表；输出 JSON/JSONL 必须包含 input 与期望结果或评审标准。格式无效返回 findings 并阻断 review，不能靠文本行数获得通过。
 
 ## 6. 相关资料
 

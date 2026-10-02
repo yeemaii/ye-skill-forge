@@ -4,6 +4,10 @@
 ## 目的与范围 / Purpose and scope
 {job_description}
 
+## 根问题与使用者 / Root problem and user
+- 根问题：{root_problem}
+- 使用者：{target_user}
+
 ## 架构 / Architecture
 
 {architecture_description}
@@ -23,8 +27,15 @@
 ## Boundaries
 {exclusions}
 
+## 触发与近邻边界 / Routing boundary
+触发示例：
+{trigger_examples}
+
+不要触发的近邻请求：
+{near_neighbors}
+
 ## 质量与安全检查 / Quality and safety checks
-{quality_standards}
+{success_signals}
 
 ## 委派 / Delegation
 {agent_definitions}
@@ -37,3 +48,6 @@
 
 ## 配置 / Configuration
 {configuration_options}
+
+## 组合契约 / Composition contract
+{composition_contract}

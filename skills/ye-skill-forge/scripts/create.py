@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from core.generator import generate_frontmatter, generate_interface, generate_manifest, generate_skill, save_skill
 from core.cli import configure_console
 from core.skill_utils import is_within, validate_skill
+from core.intent import build_intent_model
 
 
 def slug_for(name, requested_slug=None):
@@ -66,6 +67,13 @@ def collect_interactive_brief(display_name, slug):
         "quality_standards": "\n".join(f"- {item}" for item in quality_standards) or "检查完整性、正确性和请求的格式。",
         "author": "Unspecified",
     }
+    print("可选澄清：请只回答会改变职责或边界的问题；直接回车表示暂用假设。")
+    root_problem = input("真正要消除的重复失败（可留空）：").strip()
+    target_user = input("反复使用者（可留空）：").strip()
+    triggers = read_lines("用户自然表达示例（每行一个；空行结束）：")
+    near_neighbors = read_lines("最像但不应触发的请求（每行一个；空行结束）：")
+    success_signals = read_lines("可观察成功信号（每行一个；空行结束）：")
+    data.update({"root_problem": root_problem, "root_confirmed": bool(root_problem), "target_user": target_user, "trigger_examples": triggers, "near_neighbors": near_neighbors, "success_signals": success_signals})
     if template == "advanced":
         data["architecture"] = input("哪些独立组件足以说明需要 advanced 模板？").strip()
         data["agents"] = input("是否需要独立角色？如不需要，请说明原因。").strip()
@@ -86,6 +94,12 @@ def collect_argument_brief(args, slug):
         "workflow_steps": args.workflow_step or [],
         "exclusions": args.exclude or [],
         "quality_standards": "\n".join(f"- {item}" for item in args.quality_check) or "检查完整性、正确性和请求的格式。",
+        "root_problem": args.root_problem or "",
+        "root_confirmed": args.root_confirmed,
+        "target_user": args.target_user or "",
+        "trigger_examples": args.trigger,
+        "near_neighbors": args.near_neighbor,
+        "success_signals": args.success_signal,
         "author": args.author,
         "architecture": args.architecture or "",
         "agents": args.agents or "",
@@ -102,12 +116,34 @@ def build_description(data):
 
 
 def create_package(skill_data, output_dir):
+    skill_data = dict(skill_data)
+    for source, destination in (("recurring_job", "job"), ("inputs", "input_description"), ("outputs", "output_format"), ("boundaries", "exclusions"), ("triggers", "trigger_examples")):
+        if skill_data.get(source):
+            value = skill_data[source]
+            skill_data[destination] = "\n".join(str(item) for item in value) if isinstance(value, list) and destination in {"input_description", "output_format"} else value
+    skill_data.setdefault("template", "standard")
     if not str(skill_data.get("job", "")).strip():
         raise ValueError("skill 的重复任务不能为空。")
     if skill_data.get("template") == "advanced" and not all(
         str(skill_data.get(key, "")).strip() for key in ("architecture", "agents")
     ):
         raise ValueError("advanced 模板需要组件说明和明确的角色/委派决定。")
+    intent = build_intent_model(skill_data)
+    skill_data["_intent_model"] = intent
+    if not skill_data.get("root_problem"):
+        skill_data["root_problem"] = intent["root_problem"]
+    if not skill_data.get("target_user"):
+        skill_data["target_user"] = intent["target_user"]
+    if not skill_data.get("trigger_examples"):
+        skill_data["trigger_examples"] = intent["triggers"]
+    if not skill_data.get("near_neighbors"):
+        skill_data["near_neighbors"] = intent["near_neighbors"]
+    if not skill_data.get("success_signals"):
+        skill_data["success_signals"] = intent["success_signals"]
+    if not skill_data.get("design_pattern"):
+        skill_data["design_pattern"] = intent["design_pattern"]
+    if not skill_data.get("composition"):
+        skill_data["composition"] = intent["composition"]
     skill_data["description"] = build_description(skill_data)
     body = generate_skill(skill_data, skill_data["template"])
     content = generate_frontmatter(skill_data) + body
@@ -127,6 +163,7 @@ def create_package(skill_data, output_dir):
         generate_manifest(skill_data),
         output_path,
         interface=generate_interface(skill_data),
+        trigger_cases={"positive": intent["triggers"], "negative": intent["near_neighbors"], "near_neighbor": intent["near_neighbors"]} if intent["triggers"] or intent["near_neighbors"] else None,
     )
     findings = validate_skill(output_path)
     errors = [item for item in findings if item["severity"] == "error"]
@@ -149,6 +186,12 @@ def main():
     parser.add_argument("--workflow-step", action="append", default=[])
     parser.add_argument("--exclude", action="append", default=[])
     parser.add_argument("--quality-check", action="append", default=[])
+    parser.add_argument("--root-problem")
+    parser.add_argument("--root-confirmed", action="store_true", help="已有用户证据确认根问题")
+    parser.add_argument("--target-user")
+    parser.add_argument("--trigger", action="append", default=[])
+    parser.add_argument("--near-neighbor", action="append", default=[])
+    parser.add_argument("--success-signal", action="append", default=[])
     parser.add_argument("--architecture", help="Required for the advanced template")
     parser.add_argument("--agents", help="Required for the advanced template; state roles or why delegation is not used")
     parser.add_argument("--configuration", help="User choices that materially change behavior")

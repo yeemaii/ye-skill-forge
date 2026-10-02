@@ -16,7 +16,8 @@ PLACEHOLDER_PATTERN = re.compile(
     r"\{(?:skill_name|job_description|workflow_steps|input_description|"
     r"output_format(?:_example)?|output_example|exclusions|quality_standards|"
     r"references|architecture_description|agent_definitions|"
-    r"configuration_options)\}"
+    r"configuration_options|root_problem|target_user|trigger_examples|"
+    r"near_neighbors|success_signals|composition_contract)\}"
 )
 
 
@@ -93,6 +94,16 @@ def validate_skill(skill_path):
                 add("error", "manifest-name", "manifest.json name must match SKILL.md frontmatter.")
             elif not manifest.get("version"):
                 add("warning", "manifest-version", "manifest.json has no version.")
+            if isinstance(manifest, dict) and "design" in manifest:
+                design = manifest["design"]
+                if not isinstance(design, dict):
+                    add("error", "design-shape", "manifest.design must be an object.")
+                else:
+                    if design.get("root_confirmed") is not True:
+                        add("warning", "intent-unconfirmed", "Root problem is provisional; this is an authoring scaffold, not a confirmed design.")
+                    for field in ("root_problem", "target_user", "triggers", "near_neighbors", "success_signals"):
+                        if not design.get(field):
+                            add("warning", "design-missing", f"manifest.design.{field} lacks concrete design evidence.")
 
     interface_file = root / "agents" / "interface.yaml"
     if interface_file.exists():

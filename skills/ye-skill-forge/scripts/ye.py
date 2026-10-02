@@ -27,12 +27,17 @@ from core.lifecycle import (
     upgrade_check,
     read_json,
     write_report,
+    package_manifest,
 )
 from core.skill_utils import validate_skill
 from scripts.create import create_package
 from scripts.evaluate import evaluate_skill
 from scripts.improve import build_proposals, render_report
 from core.feedback_parser import FeedbackParser
+from core.intent import clarify
+from core.package import create_package_scaffold, handoff_check, route_eval, validate_package
+from core.evolution import apply_evolution, build_evidence_packet, evolution_summary, record_evolution, rollback_evolution
+from core.review import review_skill
 
 
 def path_arg(value):
@@ -63,20 +68,49 @@ def command_create(args):
         "author": args.author,
         "job": args.job,
         "template": args.template,
-        "input_description": args.input_description or "说明输入及缺失字段。",
-        "output_format": args.output_format or "按输出契约返回 Markdown。",
+        "input_description": args.input_description or "",
+        "output_format": args.output_format or "",
         "workflow_steps": args.workflow_step or ["读取全部输入", "执行工作流", "按契约检查输出"],
-        "exclusions": args.exclude or ["不处理职责之外的一次性请求"],
-        "quality_standards": "\n".join(f"- {item}" for item in (args.quality_check or ["完整、准确、可核查"])) ,
+        "exclusions": args.exclude or [],
+        "quality_standards": "\n".join(f"- {item}" for item in (args.quality_check or [])),
         "architecture": args.architecture or "",
         "agents": args.agents or "使用单一执行角色；只有独立且可验证的工作才委派。",
         "configuration": args.configuration or "无用户可选配置。",
+        "root_problem": args.root_problem or "",
+        "target_user": args.target_user or "",
+        "trigger_examples": args.trigger or [],
+        "near_neighbors": args.near_neighbor or [],
+        "success_signals": args.success_signal or [],
+        "root_confirmed": args.root_confirmed,
     }
     try:
+        if args.brief_file:
+            brief = read_json(args.brief_file, None)
+            if not isinstance(brief, dict):
+                raise ValueError("--brief-file 需要有效 JSON 对象")
+            data.update(brief)
+            data.update({"name": args.slug, "display_name": args.skill_name})
+        if not data.get("job"):
+            data["job"] = data.get("recurring_job", "")
+        if args.require_ready and clarify(data)["next_action"] != "design":
+            return emit({"ok": False, "error": "意图尚未明确；未生成文件", "intent": clarify(data)})
         paths, findings = create_package(data, args.output_dir or (Path.cwd() / args.slug))
     except (FileExistsError, ValueError, OSError) as exc:
         return emit({"ok": False, "error": str(exc)})
     return emit({"ok": True, "paths": paths, "warnings": [item for item in findings if item["severity"] == "warning"], "evidence_status": "executed-structure"})
+
+
+def command_intent(args):
+    try:
+        brief = read_json(args.brief_file, None) if args.brief_file else json.loads(args.brief) if args.brief else {"idea": args.idea, "job": args.job}
+        if not isinstance(brief, dict):
+            raise ValueError("意图简报必须是 JSON 对象")
+    except (json.JSONDecodeError, ValueError) as exc:
+        return emit({"ok": False, "error": f"--brief 不是有效 JSON: {exc}"})
+    result = clarify(brief, args.max_questions)
+    result["ok"] = True
+    result["evidence_status"] = "intent-model;未替用户确认根问题"
+    return emit(result)
 
 
 def command_improve(args):
@@ -149,35 +183,56 @@ def command_telemetry(args):
         return emit({"ok": False, "error": str(exc)})
 
 
+def command_package_validate(args):
+    return emit(validate_package(args.package_dir))
+
+
+def command_package_create(args):
+    try:
+        return emit(create_package_scaffold(args.slug, args.output_dir or (Path.cwd() / args.slug), args.child))
+    except (ValueError, FileExistsError, OSError) as exc:
+        return emit({"ok": False, "error": str(exc)})
+
+
+def command_route_eval(args):
+    return emit(route_eval(args.package_dir))
+
+
+def command_handoff_check(args):
+    return emit(handoff_check(args.package_dir))
+
+
+def command_evolve(args):
+    try:
+        if args.action == "summary":
+            return emit(evolution_summary(args.skill_dir))
+        if args.action == "rollback":
+            if not args.packet:
+                raise ValueError("rollback 需要 --packet 指定应用记录")
+            return emit(rollback_evolution(args.skill_dir, args.packet))
+        if args.action == "apply":
+            if not args.packet or not args.change_file:
+                raise ValueError("apply 需要 --packet 和 --change-file；默认预览，--apply 才写入")
+            return emit(apply_evolution(args.skill_dir, args.packet, args.change_file, args.evidence_file, args.apply, args.allow_self_edit))
+        if not args.feedback:
+            raise ValueError("record 需要 --feedback；它只记录提案，不会自动修改 Skill")
+        feedback = FeedbackParser().parse(args.feedback, base_dir=args.skill_dir)
+        proposals = build_proposals(feedback)
+        packet = build_evidence_packet(args.skill_dir, feedback, proposals)
+        return emit(record_evolution(args.skill_dir, packet))
+    except (ValueError, OSError, SyntaxError) as exc:
+        return emit({"ok": False, "error": str(exc)})
+
+
 def command_atlas(args):
     return emit(atlas(args.workspace))
 
 
 def command_review(args, quiet=False):
-    root = args.skill_dir
-    checks = {
-        "validate": {"result": validate_skill(root)},
-        "trigger": trigger_eval(root),
-        "output": output_eval(root),
-        "trust": trust_audit(root),
-        "ir": skill_ir(root),
-        "registry": registry_audit(root),
-    }
-    findings = checks["validate"]["result"]
-    gates = []
-    gates.append({"key": "structure", "status": "pass" if not any(item["severity"] == "error" for item in findings) else "block", "evidence": "validate"})
-    for key in ("trigger", "output"):
-        result = checks[key]
-        gates.append({"key": key, "status": "pass" if result.get("ok") else "warn", "evidence": f"reports/{key}_eval.json", "reason": result.get("status", "missing")})
-    trust_findings = checks["trust"].get("findings", [])
-    trust_status = "block" if not checks["trust"].get("ok") else "warn" if any(item.get("severity") == "warn" for item in trust_findings) else "pass"
-    gates.append({"key": "trust", "status": trust_status, "evidence": "reports/security_trust.json", "findings": len(trust_findings)})
-    gates.append({"key": "ir", "status": "pass" if checks["ir"].get("contract", {}).get("has_workflow") else "warn", "evidence": "reports/skill_ir.json"})
-    gates.append({"key": "registry", "status": "pass" if checks["registry"].get("ok") else "warn", "evidence": "reports/registry_audit.json"})
-    blockers = sum(1 for gate in gates if gate["status"] == "block")
-    warnings = sum(1 for gate in gates if gate["status"] == "warn")
-    result = {"ok": blockers == 0, "decision": "blocked" if blockers else "review" if warnings else "pass", "gates": gates, "blockers": blockers, "warnings": warnings, "optional_not_run": ["盲审/A-B", "原生客户端权限探针", "外部客户端遥测", "多 skill Atlas"], "evidence_status": "mixed-static-and-executed"}
-    write_report(root, "review", result, "Ye 综合审查")
+    try:
+        result = review_skill(args.skill_dir)
+    except (OSError, ValueError) as exc:
+        result = {"ok": False, "error": str(exc)}
     if quiet:
         return 0 if result["ok"] else 2
     return emit(result)
@@ -186,7 +241,7 @@ def command_review(args, quiet=False):
 def command_release(args):
     review_code = command_review(argparse.Namespace(skill_dir=args.skill_dir), quiet=True)
     review = read_json(Path(args.skill_dir) / "reports" / "review.json", {}) or {}
-    manifest = read_json(Path(args.skill_dir) / "manifest.json", {}) or {}
+    manifest = package_manifest(args.skill_dir)
     strict = args.strict or manifest.get("maturity_tier") in {"library", "governed"}
     package = None
     install = None
@@ -229,10 +284,21 @@ def build_parser():
     skill_parser("review", "运行核心门禁并汇总证据")
     sub.choices["review"].set_defaults(func=command_review)
 
+    intent = sub.add_parser("intent", help="从模糊想法生成根问题和高信息量提问")
+    intent_group = intent.add_mutually_exclusive_group(required=True)
+    intent_group.add_argument("--idea")
+    intent_group.add_argument("--brief", help="JSON 形式的意图简报")
+    intent_group.add_argument("--brief-file", help="意图简报 JSON 文件")
+    intent.add_argument("--job")
+    intent.add_argument("--max-questions", type=int, default=2)
+    intent.set_defaults(func=command_intent)
+
     create = sub.add_parser("create", help="创建 skill 包")
     create.add_argument("skill_name")
     create.add_argument("--slug", required=True)
-    create.add_argument("--job", required=True)
+    create.add_argument("--job", help="重复任务；也可由 --brief-file 提供")
+    create.add_argument("--brief-file", help="消费 intent 简报，保留领域决策和假设")
+    create.add_argument("--require-ready", action="store_true", help="根问题/职责/输出/边界/成功条件不明确时拒绝生成")
     create.add_argument("--output-dir", default=None)
     create.add_argument("--template", choices=("minimal", "standard", "advanced"), default="standard")
     create.add_argument("--input-description")
@@ -243,6 +309,12 @@ def build_parser():
     create.add_argument("--architecture")
     create.add_argument("--agents")
     create.add_argument("--configuration")
+    create.add_argument("--root-problem")
+    create.add_argument("--root-confirmed", action="store_true", help="已有用户证据确认根问题")
+    create.add_argument("--target-user")
+    create.add_argument("--trigger", action="append")
+    create.add_argument("--near-neighbor", action="append")
+    create.add_argument("--success-signal", action="append")
     create.add_argument("--author", default="Ye")
     create.set_defaults(func=command_create)
 
@@ -279,6 +351,34 @@ def build_parser():
     atlas_parser = sub.add_parser("atlas", help="扫描多个 skill 的静态路由重叠")
     atlas_parser.add_argument("workspace", type=Path)
     atlas_parser.set_defaults(func=command_atlas)
+
+    package_validate = sub.add_parser("package-validate", help="验证 SkillPackage、Router 和子 Skill")
+    package_validate.add_argument("package_dir", type=path_arg)
+    package_validate.set_defaults(func=command_package_validate)
+
+    package_create = sub.add_parser("package-init", help="创建多 Skill 包的可校验骨架")
+    package_create.add_argument("slug", help="小写包名")
+    package_create.add_argument("--child", action="append", required=True, help="子 Skill 名称，可重复")
+    package_create.add_argument("--output-dir")
+    package_create.set_defaults(func=command_package_create)
+
+    route_parser = sub.add_parser("route-eval", help="检查包级路由样例和目标")
+    route_parser.add_argument("package_dir", type=path_arg)
+    route_parser.set_defaults(func=command_route_eval)
+
+    handoff_parser = sub.add_parser("handoff-check", help="检查 Router 到子 Skill 的交接契约")
+    handoff_parser.add_argument("package_dir", type=path_arg)
+    handoff_parser.set_defaults(func=command_handoff_check)
+
+    evolve = skill_parser("evolve", "记录证据驱动的进化提案")
+    evolve.add_argument("action", choices=("record", "summary", "apply", "rollback"))
+    evolve.add_argument("--feedback")
+    evolve.add_argument("--packet", help="目标 reports/evolution 内的提案或应用记录")
+    evolve.add_argument("--change-file", help="显式文本变更集 JSON")
+    evolve.add_argument("--evidence-file", help="版本绑定的行为回放记录 JSON")
+    evolve.add_argument("--apply", action="store_true", help="审核后写入；默认只预览候选")
+    evolve.add_argument("--allow-self-edit", action="store_true", help="显式允许已授权的 Ye 自身修改")
+    evolve.set_defaults(func=command_evolve)
 
     release = skill_parser("release-check", "运行发布前综合检查")
     release.add_argument("--package-dir")

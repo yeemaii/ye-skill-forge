@@ -1,0 +1,7 @@
+[
+  {"input": "帮我筛选并去重这些论文", "expected": "source-triage"},
+  {"input": "比较这些来源并总结一致与冲突", "expected": "evidence-synthesis"},
+  {"input": "帮我翻译这段无关的日常对话", "expected": "out-of-scope", "kind": "negative"},
+  {"input": "帮我处理这些研究资料", "expected": "clarify", "kind": "conflict"},
+  {"input": "先筛选去重这些论文，再综合它们的一致与冲突", "expected": ["source-triage", "evidence-synthesis"], "kind": "sequence"}
+]

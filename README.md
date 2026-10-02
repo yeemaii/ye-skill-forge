@@ -1,6 +1,6 @@
 # Ye Skill Forge
 
-Ye 是中文优先、可独立运行的 agent skill 工程系统，覆盖可复用 skill 的创建、审查、改进、评测、信任检查、跨平台编译、打包、安装模拟、升级和发布门禁。
+Ye 是中文优先、可独立运行的 agent skill 元设计与工程系统，先从模糊想法提炼根问题，再创建单 Skill、工作流包或多 Skill 家族，并覆盖评测、信任检查、跨平台编译、打包、安装模拟、升级和证据驱动进化。
 
 ## 这是一个 Agent Skill
 
@@ -11,6 +11,8 @@ Ye 是中文优先、可独立运行的 agent skill 工程系统，覆盖可复�
 > 请审查 `D:\work\my-skill`，检查触发边界、输出契约、权限风险和发布阻塞项，不要直接修改文件。
 
 > 请根据这轮评测失败改进这个 skill，保留已有有效行为，并补充一个近邻负例和回归验证。
+
+> 我想做一个能处理研究资料的 skill。先问会改变职责和组合方式的问题，不要直接生成一套假设。
 
 不需要为了正常调用 Ye 手动运行 Python 脚本。脚本命令主要面向维护者，用于结构验证、自动化评测、打包和发布前检查。
 
@@ -25,6 +27,10 @@ Ye 是中文优先、可独立运行的 agent skill 工程系统，覆盖可复�
 3. 用自然语言提出创建、审查、改进、评测、打包或发布准备请求。
 
 完整的用户流程见 [`docs/usage.md`](docs/usage.md)。
+
+多 Skill 包示例见 [`skills/ye-skill-forge/examples/research-package/`](skills/ye-skill-forge/examples/research-package/)。
+
+2.0 改造说明、验证范围与剩余缺口见 [`docs/upgrade-2.0.md`](docs/upgrade-2.0.md)。
 
 ## 开发者验证
 

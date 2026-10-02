@@ -33,20 +33,33 @@ def generate_skill(skill_data, template_type="standard"):
     else:
         exclusions_text = str(exclusions)
 
+    def as_lines(value, fallback):
+        if isinstance(value, list):
+            text = "\n".join(f"- {item}" for item in value if str(item).strip())
+        else:
+            text = str(value or "")
+        return text.strip() or fallback
+
     values = {
         "{skill_name}": skill_data.get("display_name") or skill_data.get("name", "New Skill"),
         "{job_description}": skill_data.get("job", ""),
         "{workflow_steps}": workflow_text or "1. 读取全部输入\n2. 执行工作流\n3. 按契约检查输出",
-        "{input_description}": skill_data.get("input_description", "说明接受的输入及缺失字段。"),
-        "{output_format}": skill_data.get("output_format", "按契约返回简洁 Markdown。"),
+        "{input_description}": skill_data.get("input_description") or "待作者明确接受的输入及缺失字段处理（骨架）。",
+        "{output_format}": skill_data.get("output_format") or "待作者明确输出契约（骨架）。",
         "{output_format_example}": skill_data.get("output_format_example", "text"),
         "{output_example}": skill_data.get("output_example", "有代表性的输出示例。"),
         "{exclusions}": exclusions_text or "- 不处理职责之外的请求",
-        "{quality_standards}": skill_data.get("quality_standards", "检查完整性、正确性和请求的格式。"),
+        "{quality_standards}": skill_data.get("quality_standards") or "待作者明确可检查的成功条件（骨架）。",
         "{references}": skill_data.get("references", "只在引用能解决真实歧义时加入。"),
         "{architecture_description}": skill_data.get("architecture", "只有工作流确实需要时才拆分组件。"),
         "{agent_definitions}": skill_data.get("agents", "除非独立工作能带来收益，否则使用单一角色。"),
         "{configuration_options}": skill_data.get("configuration", "只记录会改变行为的用户选项。"),
+        "{root_problem}": skill_data.get("root_problem") or skill_data.get("job", "解决一个可重复的问题。"),
+        "{target_user}": skill_data.get("target_user") or "待明确；不影响低风险骨架生成。",
+        "{trigger_examples}": as_lines(skill_data.get("trigger_examples"), "- 用户明确提出该重复任务"),
+        "{near_neighbors}": as_lines(skill_data.get("near_neighbors"), "- 与本任务相邻但属于其他职责的请求"),
+        "{success_signals}": as_lines(skill_data.get("success_signals") or skill_data.get("quality_standards"), "- 输出满足契约并保留可核查依据"),
+        "{composition_contract}": skill_data.get("composition_contract", "单一 Skill 直接完成工作；需要拆分时先定义 Router 和交接契约。"),
     }
     for placeholder, value in values.items():
         template = template.replace(placeholder, str(value).strip())
@@ -77,7 +90,9 @@ def generate_frontmatter(skill_data):
 
 def generate_manifest(skill_data):
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    intent_model = skill_data.get("_intent_model") if isinstance(skill_data.get("_intent_model"), dict) else {}
     return {
+        "schema_version": "2.0",
         "name": skill_data.get("name", ""),
         "version": "1.0.0",
         "description": " ".join(str(skill_data.get("description", "")).split()),
@@ -87,12 +102,26 @@ def generate_manifest(skill_data):
         "maturity_tier": skill_data.get("maturity_tier", "scaffold"),
         "lifecycle_stage": "authoring",
         "review_cadence": "as-needed",
-        "license": "MIT",
+        "license": skill_data.get("license", ""),
         "created_by": "ye-skill-forge",
         "template": skill_data.get("template", "standard"),
         "target_format": "agent-skills-compatible",
         "target_platforms": ["openai", "claude", "generic", "agent-skills-compatible", "vscode"],
-        "capabilities": ["create-skill", "validate-skill", "evaluate-skill", "improve-skill"],
+        "capabilities": skill_data.get("capabilities", []),
+        "design": {
+            "root_problem": skill_data.get("root_problem") or skill_data.get("job", ""),
+            "target_user": skill_data.get("target_user", ""),
+            "triggers": skill_data.get("trigger_examples", []),
+            "near_neighbors": skill_data.get("near_neighbors", []),
+            "success_signals": skill_data.get("success_signals", []),
+            "pattern": skill_data.get("design_pattern", "single-procedural-skill"),
+            "composition": skill_data.get("composition", {}),
+            "root_confirmed": bool(intent_model.get("root_confirmed", skill_data.get("root_confirmed", False))),
+            "assumptions": intent_model.get("assumptions", []),
+            "missing": intent_model.get("missing", []),
+            "readiness": intent_model.get("readiness"),
+            "next_action": intent_model.get("next_action", "clarify"),
+        },
     }
 
 
@@ -126,7 +155,7 @@ def generate_interface(skill_data):
     }
 
 
-def save_skill(skill_content, manifest, output_dir, interface=None):
+def save_skill(skill_content, manifest, output_dir, interface=None, trigger_cases=None):
     """Create a new package atomically; never overwrite an existing target."""
     output_path = Path(output_dir).expanduser()
     if not output_path.is_absolute():
@@ -150,6 +179,11 @@ def save_skill(skill_content, manifest, output_dir, interface=None):
             agents_dir.mkdir()
             with (agents_dir / "interface.yaml").open("w", encoding="utf-8", newline="\n") as stream:
                 yaml.safe_dump(interface, stream, allow_unicode=True, sort_keys=False)
+        if trigger_cases:
+            (staging / "evals").mkdir()
+            with (staging / "evals" / "trigger_cases.json").open("w", encoding="utf-8", newline="\n") as stream:
+                json.dump(trigger_cases, stream, indent=2, ensure_ascii=False)
+                stream.write("\n")
         staging.rename(output_path)
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)

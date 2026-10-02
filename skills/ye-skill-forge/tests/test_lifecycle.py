@@ -6,8 +6,6 @@ import unittest
 import zipfile
 from pathlib import Path
 
-import sys
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
@@ -21,13 +19,20 @@ class LifecycleTests(unittest.TestCase):
             "name": "demo-skill",
             "display_name": "示例 skill",
             "job": "把输入材料整理为结构化结果",
-            "description": "把输入材料整理为结构化结果。",
+            "description": "当用户要整理输入材料时，将材料转为保留来源事实的结构化结果。",
             "template": "standard",
             "workflow_steps": ["读取输入", "按契约输出"],
             "exclusions": ["不执行一次性业务任务"],
             "quality_standards": "- 保留来源事实",
             "author": "测试",
             "maturity_tier": maturity,
+            "root_problem": "材料整理反复丢失可核查事实",
+            "root_confirmed": True,
+            "target_user": "材料整理者",
+            "trigger_examples": ["整理材料"],
+            "near_neighbors": ["写邮件"],
+            "success_signals": ["每项事实可追溯"],
+            "license": "MIT",
         }
         target = root / "demo-skill"
         save_skill(generate_frontmatter(data) + generate_skill(data), generate_manifest(data), target, generate_interface(data))
@@ -94,6 +99,7 @@ class LifecycleTests(unittest.TestCase):
             result = json.loads(completed.stdout)
             self.assertTrue(result["ok"])
             self.assertEqual(result["review"]["decision"], "pass")
+            self.assertFalse(result["review"]["behavior_verified"])
 
 
 if __name__ == "__main__":
