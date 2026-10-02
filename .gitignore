@@ -1,0 +1,21 @@
+# Python caches and local tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+
+# Local reports, state, and generated packages
+reports/
+dist/
+.ye/
+*.zip
+
+# Local secrets and editor files
+.env
+.env.*
+.vscode/
+.idea/
+*.swp

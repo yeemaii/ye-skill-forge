@@ -1,0 +1,28 @@
+interface:
+  display_name: "Ye Skill Forge"
+  short_description: "中文优先地创建、评测、交付和维护 agent skill"
+  default_prompt: "使用 $ye-skill-forge 创建、审查、改进或交付这个可复用 skill，并保留可核查证据。"
+compatibility:
+  canonical_format: "agent-skills"
+  adapter_targets:
+    - "openai"
+    - "claude"
+    - "generic"
+    - "agent-skills-compatible"
+    - "vscode"
+  activation:
+    mode: "manual"
+    paths: []
+  execution:
+    context: "inline"
+    shell: "powershell"
+  trust:
+    source_tier: "local"
+    remote_inline_execution: "forbid"
+    remote_metadata_policy: "allow-metadata-only"
+  degradation:
+    openai: "源格式加适配元数据；目标客户端行为需复测"
+    claude: "源格式加适配元数据；目标客户端行为需复测"
+    generic: "中立源格式"
+    agent-skills-compatible: "中立源格式；运行时效果需独立验证"
+    vscode: "源格式加 VS Code 说明；目标客户端行为需复测"

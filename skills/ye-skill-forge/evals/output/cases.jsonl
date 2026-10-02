@@ -1,0 +1,2 @@
+{"id":"contract-1","input":"创建一个把会议记录整理成纪要的 skill","required_sections":["输入","输出","边界","质量"]}
+{"id":"review-1","input":"检查这个 skill 是否可以交付","required_sections":["证据","缺少证据","验证"]}

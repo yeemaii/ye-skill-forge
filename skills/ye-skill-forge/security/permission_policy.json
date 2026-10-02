@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "default": "deny-unreviewed",
+  "capabilities": {
+    "network": {"decision": "review-required", "scope": "explicit-hosts-only"},
+    "subprocess": {"decision": "review-required", "scope": "declared-command-only"},
+    "file_write": {"decision": "review-required", "scope": "target-and-report-directories"},
+    "interactive": {"decision": "allow-local-cli", "scope": "explicit-user-session"}
+  },
+  "runtime_enforcement": {
+    "native": false,
+    "note": "这是源包声明；目标客户端原生执行仍需独立验证。"
+  }
+}

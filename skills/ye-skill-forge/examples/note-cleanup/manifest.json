@@ -1,0 +1,13 @@
+{
+  "name": "note-cleanup",
+  "version": "1.0.0",
+  "description": "将粗略会议记录整理为结构化、可核查的纪要。",
+  "owner": "Ye Skill Forge 示例",
+  "updated_at": "2026-10-02",
+  "status": "active",
+  "maturity_tier": "scaffold",
+  "lifecycle_stage": "example",
+  "review_cadence": "as-needed",
+  "license": "MIT",
+  "target_format": "agent-skills-compatible"
+}

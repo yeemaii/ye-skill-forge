@@ -1,0 +1,32 @@
+{
+  "name": "ye-skill-forge",
+  "version": "1.0.0",
+  "description": "中文优先、可独立运行的 agent skill 全生命周期工程系统：创建、改进、评测、信任、编译、打包、安装模拟、升级、注册审计、遥测漂移和发布门禁。",
+  "author": "Ye",
+  "owner": "Ye",
+  "updated_at": "2026-10-02",
+  "review_due": "2027-01-02",
+  "status": "active",
+  "maturity_tier": "library",
+  "lifecycle_stage": "library",
+  "context_budget_tier": "production",
+  "review_cadence": "quarterly",
+  "license": "MIT",
+  "target_platforms": ["openai", "claude", "generic", "agent-skills-compatible", "vscode"],
+  "factory_components": ["templates", "methods", "scripts", "evals", "tests", "examples", "reports", "security", "dist"],
+  "keywords": ["元技能", "skill工程", "skill生命周期", "评测", "打包", "发布"],
+  "main": "SKILL.md",
+  "capabilities": [
+    "create-skill", "evaluate-skill", "improve-skill", "validate-skill",
+    "skill-ir", "trigger-eval", "output-eval", "trust-audit", "compile-targets",
+    "package", "install-simulation", "upgrade-check", "registry-audit",
+    "telemetry-drift", "review-gates", "release-check"
+  ],
+  "platforms": {
+    "openai": "源 skill 加目标适配元数据；需在目标客户端复测运行时行为",
+    "claude": "源 skill 加目标适配元数据；需在目标客户端复测运行时行为",
+    "generic": "中立源格式和适配元数据",
+    "agent-skills-compatible": "中立源格式；平台运行时效果仍需独立验证",
+    "vscode": "Agent Skills 源格式加 VS Code 说明；需在 VS Code 客户端复测"
+  }
+}
