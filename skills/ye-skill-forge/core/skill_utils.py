@@ -19,6 +19,12 @@ PLACEHOLDER_PATTERN = re.compile(
     r"configuration_options|root_problem|target_user|trigger_examples|"
     r"near_neighbors|success_signals|composition_contract)\}"
 )
+SCAFFOLD_MARKERS = (
+    "待作者明确",
+    "待从真实材料",
+    "有代表性的输出示例。",
+    "只在引用能解决真实歧义时加入。",
+)
 
 
 def resolve_skill_dir(skill_path):
@@ -76,6 +82,9 @@ def validate_skill(skill_path):
         add("error", "empty-body", "SKILL.md has no instructions after frontmatter.")
     if PLACEHOLDER_PATTERN.search(body):
         add("error", "unfilled-template", "SKILL.md still contains an unfilled template placeholder.")
+    scaffold_hits = [marker for marker in SCAFFOLD_MARKERS if marker in body]
+    if scaffold_hits:
+        add("warning", "scaffold-content", "Generated scaffold still contains generic guidance; replace it with the target domain method before calling the Skill complete.")
 
     estimated_tokens = max(1, len(skill_file.read_text(encoding="utf-8-sig")) // 4)
     if estimated_tokens > 6000:

@@ -28,6 +28,7 @@ from core.lifecycle import (
     read_json,
     write_report,
     package_manifest,
+    record_behavior_evidence,
 )
 from core.skill_utils import validate_skill
 from scripts.create import create_package
@@ -38,6 +39,14 @@ from core.intent import clarify
 from core.package import create_package_scaffold, handoff_check, route_eval, validate_package
 from core.evolution import apply_evolution, build_evidence_packet, evolution_summary, record_evolution, rollback_evolution
 from core.review import review_skill
+
+
+def default_skill_output(slug):
+    """Choose the project-local runtime root without writing into Ye itself."""
+    base = Path.cwd().resolve()
+    if base == ROOT or ROOT in base.parents:
+        base = ROOT.parents[1]
+    return base / ".ye" / "skills" / slug
 
 
 def path_arg(value):
@@ -77,6 +86,11 @@ def command_create(args):
         "agents": args.agents or "使用单一执行角色；只有独立且可验证的工作才委派。",
         "configuration": args.configuration or "无用户可选配置。",
         "root_problem": args.root_problem or "",
+        "user_result": args.user_result or "",
+        "reusable_method": args.reusable_method or "",
+        "materials": args.material,
+        "tools": args.tool,
+        "permissions": args.permission,
         "target_user": args.target_user or "",
         "trigger_examples": args.trigger or [],
         "near_neighbors": args.near_neighbor or [],
@@ -94,7 +108,7 @@ def command_create(args):
             data["job"] = data.get("recurring_job", "")
         if args.require_ready and clarify(data)["next_action"] != "design":
             return emit({"ok": False, "error": "意图尚未明确；未生成文件", "intent": clarify(data)})
-        paths, findings = create_package(data, args.output_dir or (Path.cwd() / args.slug))
+        paths, findings = create_package(data, args.output_dir or default_skill_output(args.slug))
     except (FileExistsError, ValueError, OSError) as exc:
         return emit({"ok": False, "error": str(exc)})
     return emit({"ok": True, "paths": paths, "warnings": [item for item in findings if item["severity"] == "warning"], "evidence_status": "executed-structure"})
@@ -134,6 +148,13 @@ def command_trigger_eval(args):
 
 def command_output_eval(args):
     return emit(output_eval(args.skill_dir))
+
+
+def command_behavior_evidence(args):
+    try:
+        return emit(record_behavior_evidence(args.skill_dir, args.evidence_file))
+    except (ValueError, OSError) as exc:
+        return emit({"ok": False, "error": str(exc)})
 
 
 def command_trust(args):
@@ -189,7 +210,7 @@ def command_package_validate(args):
 
 def command_package_create(args):
     try:
-        return emit(create_package_scaffold(args.slug, args.output_dir or (Path.cwd() / args.slug), args.child))
+        return emit(create_package_scaffold(args.slug, args.output_dir or default_skill_output(args.slug), args.child))
     except (ValueError, FileExistsError, OSError) as exc:
         return emit({"ok": False, "error": str(exc)})
 
@@ -277,6 +298,9 @@ def build_parser():
     sub.choices["trigger-eval"].set_defaults(func=command_trigger_eval)
     skill_parser("output-eval", "检查输出评测样例")
     sub.choices["output-eval"].set_defaults(func=command_output_eval)
+    behavior = skill_parser("behavior-evidence", "记录并绑定真实行为验证证据")
+    behavior.add_argument("--evidence-file", required=True)
+    behavior.set_defaults(func=command_behavior_evidence)
     skill_parser("trust", "扫描脚本权限和秘密模式")
     sub.choices["trust"].set_defaults(func=command_trust)
     skill_parser("registry-audit", "审计版本和分发元数据")
@@ -284,7 +308,7 @@ def build_parser():
     skill_parser("review", "运行核心门禁并汇总证据")
     sub.choices["review"].set_defaults(func=command_review)
 
-    intent = sub.add_parser("intent", help="从模糊想法生成根问题和高信息量提问")
+    intent = sub.add_parser("intent", help="从模糊想法生成用户结果、设计字段和高信息量提问")
     intent_group = intent.add_mutually_exclusive_group(required=True)
     intent_group.add_argument("--idea")
     intent_group.add_argument("--brief", help="JSON 形式的意图简报")
@@ -298,7 +322,7 @@ def build_parser():
     create.add_argument("--slug", required=True)
     create.add_argument("--job", help="重复任务；也可由 --brief-file 提供")
     create.add_argument("--brief-file", help="消费 intent 简报，保留领域决策和假设")
-    create.add_argument("--require-ready", action="store_true", help="根问题/职责/输出/边界/成功条件不明确时拒绝生成")
+    create.add_argument("--require-ready", action="store_true", help="用户结果/职责/输出/边界/成功条件不明确时拒绝生成")
     create.add_argument("--output-dir", default=None)
     create.add_argument("--template", choices=("minimal", "standard", "advanced"), default="standard")
     create.add_argument("--input-description")
@@ -311,6 +335,11 @@ def build_parser():
     create.add_argument("--configuration")
     create.add_argument("--root-problem")
     create.add_argument("--root-confirmed", action="store_true", help="已有用户证据确认根问题")
+    create.add_argument("--user-result", help="用户最终要得到的结果")
+    create.add_argument("--reusable-method", help="已知有效做法、规范或参考来源")
+    create.add_argument("--material", action="append", default=[], help="正常工作所需材料；可重复")
+    create.add_argument("--tool", action="append", default=[], help="正常工作所需工具；可重复")
+    create.add_argument("--permission", action="append", default=[], help="必要授权或外部动作边界；可重复")
     create.add_argument("--target-user")
     create.add_argument("--trigger", action="append")
     create.add_argument("--near-neighbor", action="append")

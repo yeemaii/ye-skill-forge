@@ -10,7 +10,7 @@ import re
 from typing import Any, Dict, Iterable, List
 
 
-INTENT_SCHEMA_VERSION = "2.0"
+INTENT_SCHEMA_VERSION = "2.1"
 
 
 def _text(value: Any) -> str:
@@ -60,6 +60,17 @@ def build_intent_model(brief: Dict[str, Any]) -> Dict[str, Any]:
         root = f"让用户能够稳定完成：{surface}"
         assumptions.append("根问题由表层想法暂代，尚未由用户确认")
     target_user = _text(brief.get("target_user") or brief.get("audience"))
+    user_result = _text(
+        brief.get("user_result")
+        or brief.get("desired_result")
+        or brief.get("final_result")
+        or brief.get("outcome")
+    )
+    reusable_method = _text(
+        brief.get("reusable_method")
+        or brief.get("known_good_method")
+        or brief.get("method")
+    )
     recurring_job = _text(brief.get("recurring_job") or brief.get("job"))
     inputs = _list(brief.get("inputs") or brief.get("input_description"))
     outputs = _list(brief.get("outputs") or brief.get("output_format"))
@@ -68,6 +79,10 @@ def build_intent_model(brief: Dict[str, Any]) -> Dict[str, Any]:
     triggers = _list(brief.get("triggers") or brief.get("trigger_examples"))
     near = _list(brief.get("near_neighbors") or brief.get("near_neighbor"))
     constraints = _list(brief.get("constraints"))
+    materials = _list(brief.get("materials") or brief.get("references"))
+    tools = _list(brief.get("tools") or brief.get("tooling"))
+    permissions = _list(brief.get("permissions") or brief.get("authorization"))
+    evidence = _list(brief.get("evidence") or brief.get("evidence_sources"))
     components = _list(brief.get("components"))
     composition = brief.get("composition") or {}
     if isinstance(composition, str):
@@ -94,8 +109,14 @@ def build_intent_model(brief: Dict[str, Any]) -> Dict[str, Any]:
     if not triggers:
         missing.append("triggers")
 
+    if not user_result and outputs:
+        user_result = "; ".join(outputs)
+        assumptions.append("用户结果由输出契约暂代；尚未单独确认")
+    if not user_result:
+        missing.append("user_result")
+
     design = choose_design_pattern({"components": components, "composition": composition, "delegation": brief.get("delegation")})
-    required = {"root_problem", "recurring_job", "outputs", "boundaries", "success_signals"}
+    required = {"root_problem", "user_result", "recurring_job", "outputs", "boundaries", "success_signals"}
     # 名称、目标用户和输入细节可以在低风险第一版中作为假设；不强制填满表格。
     readiness = round(1 - len(required.intersection(missing)) / len(required), 2)
     if design == "skill-family" and not composition.get("router"):
@@ -114,7 +135,9 @@ def build_intent_model(brief: Dict[str, Any]) -> Dict[str, Any]:
         "root_problem": root,
         "root_confirmed": root_confirmed,
         "target_user": target_user,
+        "user_result": user_result,
         "recurring_job": recurring_job,
+        "reusable_method": reusable_method,
         "inputs": inputs,
         "outputs": outputs,
         "triggers": triggers,
@@ -122,6 +145,10 @@ def build_intent_model(brief: Dict[str, Any]) -> Dict[str, Any]:
         "boundaries": boundaries,
         "success_signals": success,
         "constraints": constraints,
+        "materials": materials,
+        "tools": tools,
+        "permissions": permissions,
+        "evidence": evidence,
         "tension": tension,
         "design_pattern": design,
         "components": components,
@@ -135,7 +162,8 @@ def build_intent_model(brief: Dict[str, Any]) -> Dict[str, Any]:
 
 
 QUESTION_BANK = {
-    "root_problem": "当这个 Skill 做得很好时，用户哪一个反复出现的失败会消失？请描述失败，而不是想要的工具名称。",
+    "root_problem": "这个 Skill 要让用户反复完成什么结果？如果是修复已有做法，请说明现在最影响结果的失败。",
+    "user_result": "用户最终要得到什么，什么现象能证明这项能力确实有用？",
     "target_user": "谁会反复使用它？这个人的上下文或权限会怎样改变设计？",
     "recurring_job": "用户会提供什么输入，并希望每次得到什么可检查的结果？",
     "inputs": "最小必需输入是什么？缺失时应该追问、标记未知，还是拒绝继续？",
@@ -152,7 +180,7 @@ def high_information_questions(model: Dict[str, Any], limit: int = 2) -> List[Di
     """按会改变架构/边界/风险的程度排序，最多返回少量问题。"""
     missing = list(model.get("blocking_missing", model.get("missing", [])))
     priority = [
-        "root_problem", "recurring_job", "outputs", "boundaries", "router_contract",
+        "root_problem", "user_result", "recurring_job", "outputs", "boundaries", "router_contract",
         "success_signals", "target_user", "inputs", "near_neighbors", "triggers",
     ]
     result = []

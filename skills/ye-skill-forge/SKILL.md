@@ -3,19 +3,19 @@ name: ye-skill-forge
 description: 从模糊想法、工作流或失败反馈创建、评估、改进并交付可复用的 Agent Skill 或多 Skill 包。用于澄清 Skill 需求、设计职责与路由、生成文件、补评测、组合编排和证据驱动进化；不执行目标 Skill 的业务任务。
 metadata:
   author: Ye
-  version: "2.0.0"
+  version: "2.1.0"
   language: zh-CN
 ---
 
 # Ye Skill Forge
 
-把用户意图变成最小、完整、可验证的 Skill。用模型理解需求和设计决策，用脚本检查确定性约束；模板只提供骨架，不能替代领域工作流。衡量“更好”的依据是用户的重复任务、成功信号和使用证据。
+把用户意图和真实材料变成最小、完整、可使用、可验证的 Skill。用模型理解领域方法和设计决策，用脚本检查确定性约束；模板只提供骨架，不能替代领域工作流。衡量“更好”的依据是用户要得到的结果、稳定可复用的方法和真实使用证据。
 
 ## 选择工作模式
 
 | 请求 | 工作方式 | 结果 |
 | --- | --- | --- |
-| 模糊想法或只有功能列表 | 澄清 | 根问题候选、关键不确定性、最小下一步 |
+| 模糊想法或只有功能列表 | 澄清 | 用户结果候选、关键不确定性、最小下一步 |
 | 方向明确，需要设计 | 设计 | 职责、触发、输入输出、边界、验证计划 |
 | 开始创建、修改或重构 | 构建 | 实际文件、具体示例、验证结果 |
 | 审查、比较、准备交付 | 审查 | 按严重度排序的发现、证据和缺口 |
@@ -23,21 +23,21 @@ metadata:
 
 复合请求顺序执行：审查并优化要完成审查和本地修改；分析失败并更新要完成回归。用户只要分析时不写源文件。请求已授权的可逆本地修改不需要再次确认。安装、外部发布和传播按用户已有授权范围执行。
 
-## 先找到真正任务
+## 先找到真正任务（用户结果与输入）
 
-读用户材料和现有目标，区分“想要的工具”与“反复失败的任务”。用五项简报约束设计：
+读用户材料和现有目标，区分交付形式与真正要稳定复用的结果。用简报约束设计：
 
 ```text
-根问题 -> 重复职责 -> 必需输出 -> 触发/近邻边界 -> 可观察成功信号
+用户结果 -> 重复职责 -> 必需输入/材料 -> 触发/近邻边界 -> 可观察成功信号
 ```
 
 - 保留用户选择的产品、领域和目标；不要用自己猜测的“深层需求”替换它。
-- 每轮提出一到两条会改变职责、边界、架构或风险的问题。优先让用户描述一个真实输入、失败结果和期望结果；给有区别的选项，避免引导用户同意你的方案。
+- 每轮提出一到两条会改变职责、边界、架构或风险的问题。优先让用户描述一个真实输入、期望结果和已知有效做法；已有失败时再追问失败结果。给有区别的选项，避免引导用户同意你的方案。
 - 已有上下文足够时直接提炼并继续。`root_confirmed` 记录已有用户证据，不要求额外的仪式性确认。
 - 真正职责仍不清楚时保持 `clarify`；低风险的名称、格式和环境细节可以作为假设，避免为了填表反复追问。少数关键问题仍未解决时继续澄清，不因固定轮数而冒充理解。
 - 创建前查看用户提供或当前项目可见的相邻 Skill 和已有资产。同一职责优先改进或复用；单次任务不强制包装成 Skill。
 
-详细交互和简报字段见 [methods/intent.md](methods/intent.md)。`intent` 是字段检查助手，不具备领域推理能力；模型负责把表层需求转成根问题。
+详细交互和简报字段见 [methods/intent.md](methods/intent.md)，领域方法设计见 [methods/domain-design.md](methods/domain-design.md)。`intent` 是字段检查助手，不具备领域推理能力；模型负责把用户目标、材料和已有做法转成可执行设计。
 
 ## 选择最小合适形态
 
@@ -51,12 +51,12 @@ metadata:
 
 组合前读 [methods/composition.md](methods/composition.md)。完整案例见 [examples/research-package/](examples/research-package/)；按当前任务选择相关案例，不照搬无关流程。
 
-## 创建和改进文件
+## 创建和改进文件（工作流）
 
 1. **锁定路径和基线**：区分运行 Ye 的 `ENGINE_ROOT`、用户授权维护的 `TARGET_ROOT`、生成输出和运行状态。读取已有文件并保留用户改动。新 Skill 优先写入用户指定路径，否则使用项目 `.ye/skills/<name>/`；不得把 Ye 源目录或安装目录当作子 Skill 的默认父目录。改 Ye 本身以用户授权的源仓库为目标，不自动同步安装副本。
 2. **设计先于模板**：从简报写可路由的 description、具体决策、缺失输入处理、失败分支和输出契约。只加入会改变行为的规则。脚本用于重复且确定的操作，资源按需加载；不要为简单 Skill 增加角色、报告或配置负担。
 3. **产生可执行资产**：写完成的 `SKILL.md` 和实际需要的引用、脚本、示例；沿用 Ye 工程约定时同时生成 manifest 与 interface。manifest 的假设、职责和入口保持一致。不要给生成 Skill 默认复制 Ye 的能力列表或替用户决定许可证。
-4. **验证并交付**：运行结构检查、实际脚本 smoke test，以及代表性正例、近邻负例和原成功例。复杂行为尽量用模型重放、实际客户端或独立评审；没有可用执行环境就保留明确缺口。静态通过不能证明输出更好。
+4. **验证并交付**：运行结构检查、实际脚本 smoke test，以及代表性正例、近邻负例和原成功例。复杂行为尽量用模型重放、实际客户端或独立评审；将通过的行为证据绑定当前源摘要后运行 `behavior-evidence` 记录。没有可用执行环境就保留明确缺口。静态通过不能证明输出更好。
 
 `create` 和 `package-init` 是骨架命令。缺少具体信息时结果只能标为 draft/scaffold；完整生成可使用 `create --brief-file ... --require-ready`。检查输出是否仍含泛化占位指令，替换为真实领域流程后再称为完成。
 
@@ -71,7 +71,7 @@ metadata:
 
 部署状态可为 `provisional / accepted / quarantined / rejected`。本地应用默认仍为 provisional；accepted 需与风险匹配的行为证据。反馈文本、遥测次数和同一模型自评不能单独证明效果提升，也不能称为独立评审。原始私有对话和回放保留在本地状态，不进入分发包。
 
-## 按风险增加门禁
+## 按风险增加门禁（验证）
 
 最小路径是意图、具体资产、结构与行为验证。使用单一事实源生成报告和适配文件。
 
@@ -82,7 +82,7 @@ metadata:
 
 工具说明见 `python <ENGINE_ROOT>/scripts/ye.py --help`。`review` 同时支持单 Skill 和包；`package-validate`、`route-eval`、`handoff-check` 检查组合结构。结构门禁通过、安装模拟通过和真实客户端效果是不同结论。
 
-需要交付时读 [methods/release.md](methods/release.md) 和 [methods/portability.md](methods/portability.md)；需要完整门禁时读 [methods/lifecycle.md](methods/lifecycle.md)。选择依据见 [methods/design-selection.md](methods/design-selection.md)，证据规则见 [methods/evidence.md](methods/evidence.md)。不要默认加载所有参考文件。
+需要交付时读 [methods/release.md](methods/release.md) 和 [methods/portability.md](methods/portability.md)；需要完整门禁时读 [methods/lifecycle.md](methods/lifecycle.md)。选择依据见 [methods/design-selection.md](methods/design-selection.md)，领域设计见 [methods/domain-design.md](methods/domain-design.md)，证据规则见 [methods/evidence.md](methods/evidence.md)。不要默认加载所有参考文件。
 
 ## 完成标准
 

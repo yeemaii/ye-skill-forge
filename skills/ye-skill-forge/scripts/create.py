@@ -14,6 +14,15 @@ from core.skill_utils import is_within, validate_skill
 from core.intent import build_intent_model
 
 
+def default_skill_output(slug):
+    """Use the project .ye root and keep generated work outside Ye's source."""
+    base = Path.cwd().resolve()
+    source_root = Path(__file__).resolve().parent.parent
+    if base == source_root or source_root in base.parents:
+        base = source_root.parents[1]
+    return base / ".ye" / "skills" / slug
+
+
 def slug_for(name, requested_slug=None):
     slug = (requested_slug or "").strip().lower()
     if not slug:
@@ -69,11 +78,13 @@ def collect_interactive_brief(display_name, slug):
     }
     print("可选澄清：请只回答会改变职责或边界的问题；直接回车表示暂用假设。")
     root_problem = input("真正要消除的重复失败（可留空）：").strip()
+    user_result = input("用户最终要得到的结果（可留空）：").strip()
+    reusable_method = input("已知有效做法或参考来源（可留空）：").strip()
     target_user = input("反复使用者（可留空）：").strip()
     triggers = read_lines("用户自然表达示例（每行一个；空行结束）：")
     near_neighbors = read_lines("最像但不应触发的请求（每行一个；空行结束）：")
     success_signals = read_lines("可观察成功信号（每行一个；空行结束）：")
-    data.update({"root_problem": root_problem, "root_confirmed": bool(root_problem), "target_user": target_user, "trigger_examples": triggers, "near_neighbors": near_neighbors, "success_signals": success_signals})
+    data.update({"root_problem": root_problem, "root_confirmed": bool(root_problem), "user_result": user_result, "reusable_method": reusable_method, "target_user": target_user, "trigger_examples": triggers, "near_neighbors": near_neighbors, "success_signals": success_signals})
     if template == "advanced":
         data["architecture"] = input("哪些独立组件足以说明需要 advanced 模板？").strip()
         data["agents"] = input("是否需要独立角色？如不需要，请说明原因。").strip()
@@ -95,6 +106,11 @@ def collect_argument_brief(args, slug):
         "exclusions": args.exclude or [],
         "quality_standards": "\n".join(f"- {item}" for item in args.quality_check) or "检查完整性、正确性和请求的格式。",
         "root_problem": args.root_problem or "",
+        "user_result": args.user_result or "",
+        "reusable_method": args.reusable_method or "",
+        "materials": args.material,
+        "tools": args.tool,
+        "permissions": args.permission,
         "root_confirmed": args.root_confirmed,
         "target_user": args.target_user or "",
         "trigger_examples": args.trigger,
@@ -132,6 +148,20 @@ def create_package(skill_data, output_dir):
     skill_data["_intent_model"] = intent
     if not skill_data.get("root_problem"):
         skill_data["root_problem"] = intent["root_problem"]
+    if not skill_data.get("user_result"):
+        skill_data["user_result"] = intent["user_result"]
+    if not skill_data.get("reusable_method"):
+        skill_data["reusable_method"] = intent["reusable_method"]
+    # Keep the structured manifest in sync with the CLI's compact input/output
+    # options.  Without this, --input-description and --output-format only
+    # reached SKILL.md while design.inputs/design.outputs stayed empty.
+    if not skill_data.get("inputs"):
+        skill_data["inputs"] = intent["inputs"]
+    if not skill_data.get("outputs"):
+        skill_data["outputs"] = intent["outputs"]
+    for field in ("materials", "tools", "permissions"):
+        if not skill_data.get(field):
+            skill_data[field] = intent[field]
     if not skill_data.get("target_user"):
         skill_data["target_user"] = intent["target_user"]
     if not skill_data.get("trigger_examples"):
@@ -178,7 +208,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("skill_name", help="Human-readable skill name")
     parser.add_argument("--slug", help="Lowercase folder/frontmatter name; required for non-Latin-only names")
-    parser.add_argument("--output", help="New output directory; defaults to ./<slug>")
+    parser.add_argument("--output", help="New output directory; defaults to ./.ye/skills/<slug>")
     parser.add_argument("--template", choices=("minimal", "standard", "advanced"))
     parser.add_argument("--job", help="Recurring job; when provided, use non-interactive mode")
     parser.add_argument("--input-description")
@@ -188,6 +218,11 @@ def main():
     parser.add_argument("--quality-check", action="append", default=[])
     parser.add_argument("--root-problem")
     parser.add_argument("--root-confirmed", action="store_true", help="已有用户证据确认根问题")
+    parser.add_argument("--user-result", help="用户最终要得到的结果")
+    parser.add_argument("--reusable-method", help="已知有效做法、规范或参考来源")
+    parser.add_argument("--material", action="append", default=[], help="正常工作所需材料；可重复")
+    parser.add_argument("--tool", action="append", default=[], help="正常工作所需工具；可重复")
+    parser.add_argument("--permission", action="append", default=[], help="必要授权或外部动作边界；可重复")
     parser.add_argument("--target-user")
     parser.add_argument("--trigger", action="append", default=[])
     parser.add_argument("--near-neighbor", action="append", default=[])
@@ -207,7 +242,7 @@ def main():
             if args.template:
                 brief["template"] = args.template
             brief["author"] = args.author
-        output_dir = args.output or slug
+        output_dir = args.output or default_skill_output(slug)
         paths, findings = create_package(brief, output_dir)
     except (FileExistsError, FileNotFoundError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)

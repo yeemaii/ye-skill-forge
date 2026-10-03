@@ -9,7 +9,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from core.skill_utils import load_skill, validate_skill
+from core.skill_utils import is_within, load_skill, validate_skill
 
 
 TARGETS = ("openai", "claude", "generic", "agent-skills-compatible", "vscode")
@@ -142,7 +142,7 @@ def build_skill_ir(root):
         "identity": {"name": metadata.get("name"), "description": metadata.get("description", "")},
         "contract": {
             "headings": headings,
-            "has_workflow": any("workflow" in h.lower() or "流程" in h or "生命周期" in h for h in headings),
+            "has_workflow": any("workflow" in h.lower() or any(term in h for term in ("流程", "生命周期", "工作流", "工作模式", "创建和改进")) for h in headings),
             "has_input_output": any("input" in h.lower() or "output" in h.lower() or "输入" in h or "输出" in h for h in headings),
             "has_boundaries": any("bound" in h.lower() or "范围" in h or "边界" in h for h in headings),
             "has_root_problem": bool(design.get("root_problem")),
@@ -341,6 +341,74 @@ def output_eval(root):
             else:
                 cases += 1
     return write_report(root, "output_eval", {"ok": not findings and cases > 0, "status": "invalid" if findings else "present" if cases else "missing", "cases": cases, "files": [p.relative_to(root).as_posix() for p in files], "findings": findings, "evidence_status": "static;未运行模型或人工盲审", "limitations": ["不能证明 with-skill 相对 baseline 的实际质量提升"]}, "输出评测")
+
+
+BEHAVIOR_JUDGES = {"human-review", "model-replay", "same-context-agent", "client-smoke"}
+
+
+def validate_behavior_evidence(root, evidence):
+    """Validate version-bound evidence supplied by a real Skill run or review.
+
+    The checker validates provenance and case shape. It does not claim that a
+    model output is semantically correct; that judgment belongs to the stated
+    judge mode and its reviewer.
+    """
+    root = Path(root).resolve()
+    findings = []
+    if not isinstance(evidence, dict):
+        return {"ok": False, "status": "invalid", "findings": [{"code": "evidence-shape", "message": "行为证据必须是 JSON 对象"}], "cases": 0}
+    if evidence.get("source_sha256") != tree_sha256(root):
+        findings.append({"code": "stale-source", "message": "行为证据绑定的源摘要与当前 Skill 不一致"})
+    if evidence.get("judge_mode") not in BEHAVIOR_JUDGES:
+        findings.append({"code": "judge-mode", "message": f"judge_mode 必须是 {sorted(BEHAVIOR_JUDGES)} 之一"})
+    cases = evidence.get("cases")
+    if not isinstance(cases, list) or not cases:
+        findings.append({"code": "cases", "message": "行为证据至少需要一个实际案例"})
+        cases = []
+    for index, case in enumerate(cases):
+        if not isinstance(case, dict):
+            findings.append({"code": "case-shape", "case": index, "message": "每个行为案例必须是对象"})
+            continue
+        for key in ("input", "expected", "observed"):
+            if not isinstance(case.get(key), str) or not case[key].strip():
+                findings.append({"code": "case-field", "case": index, "message": f"行为案例缺少非空 {key}"})
+        if case.get("passed") is not True:
+            findings.append({"code": "case-failed", "case": index, "message": "行为证据中的每个案例必须明确 passed=true"})
+    return {"ok": not findings, "status": "present" if not findings else "invalid", "findings": findings, "cases": len(cases), "judge_mode": evidence.get("judge_mode")}
+
+
+def record_behavior_evidence(root, evidence_file):
+    """Record externally produced behavior evidence after binding it to source."""
+    root = Path(root).resolve()
+    evidence_path = Path(evidence_file).expanduser().resolve()
+    if is_within(evidence_path, root) and root / "reports" not in evidence_path.parents:
+        raise ValueError("行为证据输入应放在 Skill 目录外，或放在 reports/ 下；不要把私有证据打进源包")
+    evidence = read_json(evidence_path, None)
+    if not isinstance(evidence, dict):
+        return write_report(root, "behavior_evidence", {"ok": False, "status": "invalid", "error": "证据文件必须是 JSON 对象", "evidence_status": "invalid-input"}, "行为证据")
+    result = validate_behavior_evidence(root, evidence)
+    if result["ok"]:
+        stored = dict(evidence)
+        stored["ok"] = True
+        stored["status"] = "present"
+        stored["recorded_at"] = utc_now()
+        stored["evidence_status"] = "version-bound;语义判断由声明的评审方式负责"
+        return write_report(root, "behavior_evidence", stored, "行为证据")
+    result["evidence_status"] = "invalid-input"
+    return write_report(root, "behavior_evidence", result, "行为证据")
+
+
+def behavior_evidence(root):
+    """Read and validate the evidence currently recorded for this source tree."""
+    root = Path(root).resolve()
+    path = root / "reports" / "behavior_evidence.json"
+    if not path.is_file():
+        return {"ok": False, "status": "missing", "cases": 0, "findings": [], "evidence_status": "missing"}
+    evidence = read_json(path, None)
+    result = validate_behavior_evidence(root, evidence)
+    result["path"] = str(path)
+    result["evidence_status"] = "version-bound" if result["ok"] else "invalid-recorded-evidence"
+    return result
 
 
 def _safe_output_dir(root, output_dir):

@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT))
 from core.evolution import apply_evolution, build_evidence_packet, record_evolution, rollback_evolution
 from core.feedback_parser import FeedbackParser
 from core.intent import clarify
-from core.lifecycle import compile_targets, install_simulate, output_eval, package_skill, tree_sha256, trigger_eval, trust_audit
+from core.lifecycle import behavior_evidence, compile_targets, install_simulate, output_eval, package_skill, record_behavior_evidence, tree_sha256, trigger_eval, trust_audit
 from core.package import create_package_scaffold, route_eval, validate_package
 from core.review import review_skill
 from scripts.create import create_package
@@ -46,13 +46,47 @@ class MetaTests(unittest.TestCase):
         self.assertLessEqual(len(clarify({"idea": "研究助手"}, 99)["questions"]), 2)
         self.assertFalse(clarify({"root_confirmed": True})["root_confirmed"])
 
+    def test_intent_captures_user_result_and_reusable_method(self):
+        data = brief()
+        data.update({"desired_result": "每项事实都能回到来源", "known_good_method": "先抽取原文，再逐项核对引用"})
+        result = clarify(data)
+        self.assertEqual(result["user_result"], data["desired_result"])
+        self.assertEqual(result["reusable_method"], data["known_good_method"])
+
+    def test_behavior_evidence_is_bound_to_current_source_and_review(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "notes"
+            data = brief()
+            data.update({"maturity_tier": "library", "author": "Tester", "license": "MIT"})
+            create_package(data, root)
+            evidence = Path(temp) / "evidence.json"
+            private_evidence = root / "private-evidence.json"
+            write_json(private_evidence, {})
+            with self.assertRaises(ValueError):
+                record_behavior_evidence(root, private_evidence)
+            private_evidence.unlink()
+            write_json(evidence, {"source_sha256": tree_sha256(root), "judge_mode": "human-review", "cases": [{"input": "来源文本", "expected": "引用笔记", "observed": "引用笔记", "passed": True}]})
+            recorded = record_behavior_evidence(root, evidence)
+            self.assertTrue(recorded["ok"])
+            self.assertTrue(behavior_evidence(root)["ok"])
+            self.assertTrue(any(gate["key"] == "behavior" and gate["status"] == "pass" for gate in review_skill(root)["gates"]))
+            (root / "SKILL.md").write_text((root / "SKILL.md").read_text(encoding="utf-8") + "\nchanged\n", encoding="utf-8")
+            stale = behavior_evidence(root)
+            self.assertFalse(stale["ok"])
+            self.assertEqual(stale["status"], "invalid")
+
     def test_generation_consumes_intent_and_keeps_real_trigger_cases(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "notes"
-            create_package(brief(), root)
+            data = brief()
+            data.update({"desired_result": "每项事实都能回到原始资料", "known_good_method": "先抽取再逐条核对"})
+            create_package(data, root)
             manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
             self.assertTrue(manifest["design"]["root_confirmed"])
             self.assertEqual(manifest["design"]["next_action"], "design")
+            skill_text = (root / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("每项事实都能回到原始资料", skill_text)
+            self.assertIn("先抽取再逐条核对", skill_text)
             cases = json.loads((root / "evals/trigger_cases.json").read_text(encoding="utf-8"))
             self.assertEqual(cases["positive"], brief()["triggers"])
             self.assertEqual(cases["negative"], brief()["near_neighbors"])
@@ -67,6 +101,32 @@ class MetaTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 2)
             self.assertFalse(json.loads(completed.stdout)["ok"])
             self.assertFalse(target.exists())
+
+    def test_cli_default_generation_uses_project_ye_root(self):
+        with tempfile.TemporaryDirectory() as temp:
+            completed = subprocess.run(
+                [sys.executable, str(ROOT / "scripts/ye.py"), "create", "Notes", "--slug", "notes", "--job", "整理资料"],
+                cwd=temp, capture_output=True, text=True, encoding="utf-8",
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertTrue((Path(temp) / ".ye/skills/notes/SKILL.md").is_file())
+            self.assertFalse((Path(temp) / "notes").exists())
+
+    def test_cli_compact_input_output_options_reach_manifest_design(self):
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "notes"
+            command = [
+                sys.executable, str(ROOT / "scripts/ye.py"), "create", "Notes",
+                "--slug", "notes", "--job", "整理资料",
+                "--input-description", "会议记录和来源链接",
+                "--output-format", "带引用的 Markdown 纪要",
+                "--output-dir", str(target),
+            ]
+            completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["design"]["inputs"], ["会议记录和来源链接"])
+            self.assertEqual(manifest["design"]["outputs"], ["带引用的 Markdown 纪要"])
 
     def test_create_ready_gate_matches_raw_intent_without_scaffold_defaults(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -33,7 +33,7 @@ Ye 用来把工作流、SOP、提示词、脚本或已有 skill 整理成可复�
 
 ### 从模糊想法开始
 
-先让 Ye 输出意图模型：根问题、目标使用者、重复任务、输入输出、触发/近邻边界和设计模式。每轮提出一到两条高信息量问题；关键职责不清楚时保持 `clarify`，低风险缺口记录为假设后继续。脚本整理字段和问题，领域理解由 agent 完成。
+先让 Ye 输出意图模型：用户结果、目标使用者、重复任务、输入材料、可复用做法、输入输出、触发/近邻边界和设计模式。每轮提出一到两条高信息量问题；关键职责不清楚时保持 `clarify`，低风险缺口记录为假设后继续。脚本整理字段和问题，领域理解由 agent 完成。
 
 维护者可运行：
 
@@ -43,7 +43,7 @@ python scripts/ye.py intent --idea "我想做一个能处理研究资料的 skil
 
 ### 创建
 
-说明要重复执行的工作、目标用户、输入、输出和边界。Ye 会先进行需求建模，再选择合适模板，生成 `SKILL.md`、`manifest.json`、`agents/interface.yaml` 和基本评测。
+说明要重复执行的工作、目标用户、用户最终结果、输入、必要材料、工具、权限和边界。Ye 会先进行需求建模，再从已有做法和材料中提炼领域方法，选择合适模板，生成 `SKILL.md`、`manifest.json`、`agents/interface.yaml` 和基本评测。
 
 已有简报可保存为 JSON，运行 `intent --brief-file brief.json`，再用 `create --brief-file brief.json --require-ready` 生成。CLI 只提供骨架和已有真实触发样例，agent 继续完成具体领域流程和输出案例；省略准备度检查只能得到 draft。简报格式见 `skills/ye-skill-forge/methods/intent.md`。
 
@@ -127,9 +127,9 @@ python scripts/evaluate.py .
 python scripts/ye.py review .
 ```
 
-脚本默认把报告写入目标目录的 `reports/`，把打包结果写入指定的 `dist/`；原始遥测、秘密、凭据和私有对话不应进入发布包。本地 .env、虚拟环境和编辑器状态会统一排除；有意分发的 .env.example/sample/template 会检查凭据，保留空值、明确占位符和变量引用。信任扫描的秘密阻断项会阻止编译或归档，但静态扫描不能保证检出所有敏感数据。
+脚本默认把未指定的 Skill 写入当前项目 `.ye/skills/`，报告写入目标目录的 `reports/`，打包结果写入指定的 `dist/`；原始遥测、秘密、凭据和私有对话不应进入发布包。本地 .env、虚拟环境和编辑器状态会统一排除；有意分发的 .env.example/sample/template 会检查凭据，保留空值、明确占位符和变量引用。信任扫描的秘密阻断项会阻止编译或归档，但静态扫描不能保证检出所有敏感数据。
 
-编译完整复制运行所需引用、脚本和资产；输出目录在源包内时必须位于 dist/。编译目标子目录非空会拒绝写入，避免旧资源残留。`review` 明确输出 `behavior_verified: false`；production/library/governed 会保留行为证据缺口并阻止严格发布预检，仅凭存在样例不能通过。
+编译完整复制运行所需引用、脚本和资产；输出目录在源包内时必须位于 dist/。编译目标子目录非空会拒绝写入，避免旧资源残留。先沿正式入口运行代表性请求，把 `source_sha256`、`judge_mode` 和通过案例写入 JSON，再运行 `python scripts/ye.py behavior-evidence <skill-dir> --evidence-file evidence.json`。`review` 会读取与当前源绑定的行为证据；缺少时对 production/library/governed 保留缺口，过期或无效时阻断，不能靠静态样例通过。
 
 触发分组必须是请求字符串或含 input 的对象列表；输出 JSON/JSONL 必须包含 input 与期望结果或评审标准。格式无效返回 findings 并阻断 review，不能靠文本行数获得通过。
 

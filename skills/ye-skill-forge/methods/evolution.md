@@ -46,7 +46,7 @@ python scripts/ye.py evolve <target> apply --packet reports/evolution/<proposal>
 }
 ```
 
-有 `preserved_behaviors` 时另需 `preserved-success` 用例。`judge_mode` 可为 human-review、model-replay 或 same-context-agent；脚本核验记录结构与版本绑定，不代替评审者判断输出正确性，也不把 same-context-agent 说成独立证据。
+有 `preserved_behaviors` 时另需 `preserved-success` 用例。`judge_mode` 可为 human-review、model-replay、same-context-agent 或 client-smoke；脚本核验记录结构与版本绑定，不代替评审者判断输出正确性，也不把 same-context-agent 说成独立证据。
 
 ```powershell
 python scripts/ye.py evolve <target> apply --packet reports/evolution/<proposal>.json --change-file changes.json --evidence-file replay.json --apply

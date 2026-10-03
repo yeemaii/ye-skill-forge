@@ -16,7 +16,7 @@ from core.skill_utils import load_skill, validate_skill
 
 
 RUBRIC = (
-    ("workflow", re.compile(r"(?im)^#{1,6} .*?(workflow|流程|步骤|生命周期)"), "Add a concise, ordered workflow."),
+    ("workflow", re.compile(r"(?im)^#{1,6} .*?(workflow|工作流|流程|步骤|生命周期)"), "Add a concise, ordered workflow."),
     ("input-output", re.compile(r"(?im)^#{1,6} .*?(input|output|输入|输出|交付)"), "Define accepted inputs and the required output."),
     ("boundaries", re.compile(r"(?im)^#{1,6} .*?(boundar|scope|exclusion|边界|范围|非目标|门禁)"), "State nearby requests that should remain out of scope."),
     ("verification", re.compile(r"(?im)^#{1,6} .*?(quality|verif|validation|check|质量|验证|检查|证据)"), "Describe observable quality checks and recovery steps."),

@@ -40,6 +40,9 @@ def generate_skill(skill_data, template_type="standard"):
             text = str(value or "")
         return text.strip() or fallback
 
+    def as_materials(value, fallback):
+        return as_lines(value, fallback)
+
     values = {
         "{skill_name}": skill_data.get("display_name") or skill_data.get("name", "New Skill"),
         "{job_description}": skill_data.get("job", ""),
@@ -56,6 +59,11 @@ def generate_skill(skill_data, template_type="standard"):
         "{configuration_options}": skill_data.get("configuration", "只记录会改变行为的用户选项。"),
         "{root_problem}": skill_data.get("root_problem") or skill_data.get("job", "解决一个可重复的问题。"),
         "{target_user}": skill_data.get("target_user") or "待明确；不影响低风险骨架生成。",
+        "{user_result}": skill_data.get("user_result") or skill_data.get("output_format") or "待明确用户最终要得到的结果。",
+        "{reusable_method}": skill_data.get("reusable_method") or "待从真实材料、成功做法或规范中提炼。",
+        "{materials}": as_materials(skill_data.get("materials"), "正常工作所需的用户材料和已确认参考"),
+        "{tools}": as_materials(skill_data.get("tools"), "仅使用完成结果所需的确定性工具"),
+        "{permissions}": as_materials(skill_data.get("permissions"), "按用户授权和外部动作边界执行"),
         "{trigger_examples}": as_lines(skill_data.get("trigger_examples"), "- 用户明确提出该重复任务"),
         "{near_neighbors}": as_lines(skill_data.get("near_neighbors"), "- 与本任务相邻但属于其他职责的请求"),
         "{success_signals}": as_lines(skill_data.get("success_signals") or skill_data.get("quality_standards"), "- 输出满足契约并保留可核查依据"),
@@ -91,6 +99,16 @@ def generate_frontmatter(skill_data):
 def generate_manifest(skill_data):
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     intent_model = skill_data.get("_intent_model") if isinstance(skill_data.get("_intent_model"), dict) else {}
+
+    def design_list(value):
+        if isinstance(value, (list, tuple)):
+            return list(value)
+        if value is None or not str(value).strip():
+            return []
+        return [str(value).strip()]
+
+    inputs = design_list(skill_data.get("inputs") or intent_model.get("inputs") or skill_data.get("input_description"))
+    outputs = design_list(skill_data.get("outputs") or intent_model.get("outputs") or skill_data.get("output_format"))
     return {
         "schema_version": "2.0",
         "name": skill_data.get("name", ""),
@@ -110,10 +128,22 @@ def generate_manifest(skill_data):
         "capabilities": skill_data.get("capabilities", []),
         "design": {
             "root_problem": skill_data.get("root_problem") or skill_data.get("job", ""),
+            "user_result": skill_data.get("user_result") or skill_data.get("desired_result") or skill_data.get("output_format", ""),
             "target_user": skill_data.get("target_user", ""),
+            "recurring_job": skill_data.get("recurring_job") or skill_data.get("job", ""),
+            "inputs": inputs,
+            "outputs": outputs,
+            "boundaries": skill_data.get("boundaries") or skill_data.get("exclusions", []),
+            "reusable_method": skill_data.get("reusable_method") or skill_data.get("known_good_method", ""),
+            "materials": skill_data.get("materials", []),
+            "tools": skill_data.get("tools", []),
+            "permissions": skill_data.get("permissions", []),
+            "evidence": skill_data.get("evidence", []),
             "triggers": skill_data.get("trigger_examples", []),
             "near_neighbors": skill_data.get("near_neighbors", []),
             "success_signals": skill_data.get("success_signals", []),
+            "constraints": skill_data.get("constraints", []),
+            "tension": skill_data.get("tension", ""),
             "pattern": skill_data.get("design_pattern", "single-procedural-skill"),
             "composition": skill_data.get("composition", {}),
             "root_confirmed": bool(intent_model.get("root_confirmed", skill_data.get("root_confirmed", False))),

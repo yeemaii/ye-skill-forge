@@ -130,6 +130,11 @@ class SkillForgeTests(unittest.TestCase):
         self.assertEqual(parsed["description"], data["description"])
         self.assertEqual(parsed["metadata"]["author"], data["author"])
 
+    def test_manifest_maps_compact_input_output_fields(self):
+        manifest = generate_manifest(sample_data())
+        self.assertEqual(manifest["design"]["inputs"], ["Meeting notes or transcript"])
+        self.assertEqual(manifest["design"]["outputs"], ["Markdown sections"])
+
     def test_each_template_resolves_placeholders(self):
         data = sample_data()
         for template in ("minimal", "standard", "advanced"):
@@ -163,6 +168,11 @@ class SkillForgeTests(unittest.TestCase):
             paths, findings = create_package(data, Path(temp) / data["name"])
             self.assertTrue(Path(paths[0]).is_file())
             self.assertFalse([item for item in findings if item["severity"] == "error"], findings)
+
+    def test_generated_scaffold_is_marked_until_domain_method_is_filled(self):
+        with tempfile.TemporaryDirectory() as temp:
+            findings = create_package(sample_data(), Path(temp) / "sample")[1]
+            self.assertTrue(any(item["code"] == "scaffold-content" and item["severity"] == "warning" for item in findings), findings)
 
     def test_create_package_refuses_to_write_into_its_source(self):
         target = ROOT / "tests" / "must-not-be-created"

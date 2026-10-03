@@ -1,6 +1,6 @@
 # Ye Skill Forge
 
-Ye 是中文优先、可独立运行的 agent skill 元设计与工程系统，先从模糊想法提炼根问题，再创建单 Skill、工作流包或多 Skill 家族，并覆盖评测、信任检查、跨平台编译、打包、安装模拟、升级和证据驱动进化。
+Ye 是中文优先、可独立运行的 agent skill 元设计与工程系统，先从用户结果、真实材料和可复用做法提炼 Skill 设计，再创建单 Skill、工作流包或多 Skill 家族，并覆盖评测、信任检查、跨平台编译、打包、安装模拟、升级和证据驱动进化。
 
 ## 这是一个 Agent Skill
 
@@ -30,7 +30,7 @@ Ye 是中文优先、可独立运行的 agent skill 元设计与工程系统，�
 
 多 Skill 包示例见 [`skills/ye-skill-forge/examples/research-package/`](skills/ye-skill-forge/examples/research-package/)。
 
-2.0 改造说明、验证范围与剩余缺口见 [`docs/upgrade-2.0.md`](docs/upgrade-2.0.md)。
+2.0/2.1 改造说明、验证范围与剩余缺口见 [`docs/upgrade-2.0.md`](docs/upgrade-2.0.md)。
 
 ## 开发者验证
 
@@ -43,7 +43,7 @@ python scripts/evaluate.py .
 python scripts/ye.py review .
 ```
 
-这些命令用于开发和发布验证，不是最终用户使用 Ye 的主要入口。完整方法见 `skills/ye-skill-forge/methods/`；示例见 `skills/ye-skill-forge/examples/`。生成报告应落在目标 skill 的 `reports/` 下，原始遥测和本地状态不应进入发布包。
+这些命令用于开发和发布验证，不是最终用户使用 Ye 的主要入口。完整方法见 `skills/ye-skill-forge/methods/`；示例见 `skills/ye-skill-forge/examples/`。生成报告应落在目标 skill 的 `reports/` 下，原始遥测和本地状态不应进入发布包。真实行为验证可用 `python scripts/ye.py behavior-evidence <skill-dir> --evidence-file evidence.json` 绑定当前源版本。
 
 ## 许可证
 

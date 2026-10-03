@@ -7,6 +7,8 @@
 ## 根问题与使用者 / Root problem and user
 - 根问题：{root_problem}
 - 使用者：{target_user}
+- 用户结果：{user_result}
+- 可复用做法：{reusable_method}
 
 ## 架构 / Architecture
 
@@ -15,6 +17,8 @@
 ## 输入与输出契约 / Inputs and output contract
 - 输入：{input_description}
 - 格式：{output_format}
+- 必要材料：{materials}
+- 工具与权限：{tools}；{permissions}
 - 示例：
 
 ```{output_format_example}

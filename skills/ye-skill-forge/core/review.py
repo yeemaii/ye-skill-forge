@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from core.lifecycle import package_manifest, registry_audit, skill_ir, trust_audit, trigger_eval, output_eval, write_report
+from core.lifecycle import behavior_evidence, package_manifest, registry_audit, skill_ir, trust_audit, trigger_eval, output_eval, write_report
 from core.package import validate_package, route_eval, handoff_check
 from core.skill_utils import validate_skill
 
@@ -34,7 +34,12 @@ def review_skill(root):
     else:
         findings = validate_skill(root)
         structural_errors = any(item["severity"] == "error" for item in findings)
-        gate("structure", "block" if structural_errors else "warn" if any(item["severity"] == "warning" for item in findings) else "pass", "validate", findings=findings)
+        mature = manifest.get("maturity_tier") in {"production", "library", "governed"}
+        meaningful_warnings = any(
+            item["severity"] == "warning" and (mature or item.get("code") != "scaffold-content")
+            for item in findings
+        )
+        gate("structure", "block" if structural_errors else "warn" if meaningful_warnings else "pass", "validate", findings=findings)
         if not structural_errors:
             for key, check in (("trigger", trigger_eval), ("output", output_eval)):
                 result = check(root)
@@ -46,15 +51,21 @@ def review_skill(root):
     gate("trust", "block" if not trust["ok"] else "warn" if any(i["severity"] == "warn" for i in trust["findings"]) else "pass", "reports/security_trust.json", findings=trust["findings"])
     registry = registry_audit(root)
     gate("registry", "pass" if registry["ok"] else "warn", "reports/registry_audit.json")
-    if manifest.get("maturity_tier") in {"production", "library", "governed"}:
-        gate("behavior", "warn", "模型/客户端行为重放", reason="本命令未执行行为评测；严格发布预检不能靠静态案例通过")
+    behavior = behavior_evidence(root)
+    mature = manifest.get("maturity_tier") in {"production", "library", "governed"}
+    if behavior.get("ok"):
+        gate("behavior", "pass", "reports/behavior_evidence.json", cases=behavior.get("cases", 0), judge_mode=behavior.get("judge_mode"), evidence_status=behavior.get("evidence_status"))
+    elif behavior.get("status") == "invalid":
+        gate("behavior", "block", "reports/behavior_evidence.json", findings=behavior.get("findings", []), evidence_status=behavior.get("evidence_status"))
+    elif mature:
+        gate("behavior", "warn", "模型/客户端行为重放", reason="尚未记录与当前源版本绑定的行为证据")
     blockers = sum(item["status"] == "block" for item in gates)
     warnings = sum(item["status"] == "warn" for item in gates)
     result = {
         "ok": blockers == 0,
         "decision": "blocked" if blockers else "review" if warnings else "pass",
         "gates": gates, "blockers": blockers, "warnings": warnings,
-        "behavior_verified": False,
+        "behavior_verified": bool(behavior.get("ok")),
         "optional_not_run": ["模型或客户端行为重放", "独立评审/A-B", "原生客户端权限探针"],
         "evidence_status": "mixed-static-and-executed-structure",
     }
