@@ -2,6 +2,8 @@
 
 Ye 是中文优先、可独立运行的 agent skill 元设计与工程系统，先从用户结果、真实材料和可复用做法提炼 Skill 设计，再创建单 Skill、工作流包或多 Skill 家族，并覆盖评测、信任检查、跨平台编译、打包、安装模拟、升级和证据驱动进化。
 
+核心职责是 Skill 的创建、审查、改进和维护。提供 Codex、Claude Code 和通用交付适配；业务执行及子 Skill 的使用由宿主 Agent 完成，Ye 不包含运行调度器。适配成功与实际客户端效果分别验证。
+
 ## 这是一个 Agent Skill
 
 正常使用时，Ye 由 agent 在对话中调用。把 `skills/ye-skill-forge/` 安装到你的 agent skill 目录后，直接提出目标即可，例如：
@@ -30,9 +32,11 @@ Ye 是中文优先、可独立运行的 agent skill 元设计与工程系统，�
 
 多 Skill 包示例见 [`skills/ye-skill-forge/examples/research-package/`](skills/ye-skill-forge/examples/research-package/)。
 
-2.0/2.1 改造说明、验证范围与剩余缺口见 [`docs/upgrade-2.0.md`](docs/upgrade-2.0.md)。
+2.0/2.1/2.2 改造说明、验证范围与剩余缺口见 [`docs/upgrade-2.0.md`](docs/upgrade-2.0.md)。
 
 ## 开发者验证
+
+运行 CLI 需要 Python 3.10+ 和 `PyYAML` 依赖；首次验证前执行 `python -m pip install -r skills/ye-skill-forge/requirements.txt`。安装依赖只影响本地工程环境，不会写入生成的 Skill 包。
 
 如果你在维护 Ye 本身，进入 `skills/ye-skill-forge/` 目录执行：
 

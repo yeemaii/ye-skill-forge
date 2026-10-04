@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from core.lifecycle import behavior_evidence, package_manifest, registry_audit, skill_ir, trust_audit, trigger_eval, output_eval, write_report
+from core.lifecycle import behavior_evidence, is_skill_package, package_manifest, registry_audit, skill_ir, trust_audit, trigger_eval, output_eval, write_report
 from core.package import validate_package, route_eval, handoff_check
 from core.skill_utils import validate_skill
 
@@ -10,7 +10,7 @@ from core.skill_utils import validate_skill
 def review_skill(root):
     root = Path(root).resolve()
     manifest = package_manifest(root)
-    is_package = (root / "package.json").is_file() or manifest.get("package_type") in {"skill-package", "skill-family"}
+    is_package = is_skill_package(root)
     gates = []
 
     def gate(key, status, evidence, **detail):
@@ -54,7 +54,10 @@ def review_skill(root):
     behavior = behavior_evidence(root)
     mature = manifest.get("maturity_tier") in {"production", "library", "governed"}
     if behavior.get("ok"):
-        gate("behavior", "pass", "reports/behavior_evidence.json", cases=behavior.get("cases", 0), judge_mode=behavior.get("judge_mode"), evidence_status=behavior.get("evidence_status"))
+        status = "pass" if behavior.get("behavior_verified") else "block" if behavior.get("status") == "failed" else "warn"
+        gate("behavior", status, "reports/behavior_evidence.json", cases=behavior.get("cases", 0), counts=behavior.get("counts"), coverage_verified=behavior.get("coverage_verified"), judge_mode=behavior.get("judge_mode"), evidence_status=behavior.get("evidence_status"))
+        if mature and not behavior.get("coverage_verified"):
+            gate("behavior-coverage", "warn", "完整行为案例计划", reason="旧格式记录未绑定完整 suite，无法核实测试分母")
     elif behavior.get("status") == "invalid":
         gate("behavior", "block", "reports/behavior_evidence.json", findings=behavior.get("findings", []), evidence_status=behavior.get("evidence_status"))
     elif mature:
@@ -65,8 +68,9 @@ def review_skill(root):
         "ok": blockers == 0,
         "decision": "blocked" if blockers else "review" if warnings else "pass",
         "gates": gates, "blockers": blockers, "warnings": warnings,
-        "behavior_verified": bool(behavior.get("ok")),
-        "optional_not_run": ["模型或客户端行为重放", "独立评审/A-B", "原生客户端权限探针"],
+        "behavior_verified": bool(behavior.get("behavior_verified")),
+        "semantic_review": "requires-agent-review;static-gates-do-not-assess-instruction-meaning",
+        "optional_not_run": (["模型或客户端行为重放"] if not behavior.get("behavior_verified") else []) + ["独立评审/A-B", "原生客户端权限探针"],
         "evidence_status": "mixed-static-and-executed-structure",
     }
     return write_report(root, "review", result, "Ye 综合审查")

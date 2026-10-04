@@ -5,16 +5,16 @@ interface:
 compatibility:
   canonical_format: "agent-skills"
   adapter_targets:
-    - "agent-skills-compatible"
+    - "generic"
   activation:
     mode: "manual"
     paths: []
   execution:
     context: "inline"
-    shell: "powershell"
+    shell: "environment"
   trust:
     source_tier: "local"
     remote_inline_execution: "forbid"
     remote_metadata_policy: "allow-metadata-only"
   degradation:
-    agent-skills-compatible: "中立源格式；运行时效果需独立验证"
+    generic: "中立源格式；运行时效果需独立验证"

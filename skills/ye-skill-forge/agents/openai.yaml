@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ye Skill Forge"
+  short_description: "跨应用创建、审查、改进和维护单 Skill 或多 Skill 包"
+  default_prompt: "使用 $ye-skill-forge 创建、审查、改进或维护可复用 Skill，并报告实际产物和验证缺口。"

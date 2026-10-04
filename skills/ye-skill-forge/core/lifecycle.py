@@ -10,9 +10,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from core.skill_utils import is_within, load_skill, validate_skill
+from core.adapters import TARGETS, TARGET_ALIASES, adapt_target
+from core.behavior import summarize_evidence
+from core.package import read_skill_manifest
 
 
-TARGETS = ("openai", "claude", "generic", "agent-skills-compatible", "vscode")
 GENERATED_DIRS = {"reports", "dist", ".git", "__pycache__", ".yao", ".codex", ".ye", ".venv", "venv", "env", ".pytest_cache", ".mypy_cache", ".idea", ".vscode"}
 LOCAL_FILES = {".DS_Store", "Thumbs.db", "desktop.ini", ".coverage"}
 ENV_TEMPLATES = {".env.example", ".env.sample", ".env.template"}
@@ -76,10 +78,11 @@ def write_report(root, name, value, title="Ye 报告"):
 
 
 def package_manifest(root):
-    root = Path(root)
-    # SkillPackage 使用 package.json；单 Skill 保持 manifest.json。
-    value = read_json(root / "package.json", None) if (root / "package.json").is_file() else read_json(root / "manifest.json", {})
-    return value if isinstance(value, dict) else {}
+    return read_skill_manifest(root)
+
+
+def is_skill_package(root):
+    return package_manifest(root).get("package_type") in ("skill-package", "skill-family")
 
 
 def iter_source_files(root):
@@ -110,10 +113,21 @@ def tree_sha256(root):
     return digest.hexdigest()
 
 
+def _distribution_files(root):
+    files = list(iter_source_files(root))
+    engine_root = Path(__file__).resolve().parents[1]
+    license_file = engine_root.parents[1] / "LICENSE"
+    # Keep the canonical license at repository level, but include it when
+    # distributing Ye itself. User-created Skills do not inherit it.
+    if Path(root).resolve() == engine_root and license_file.is_file() and not any(rel == Path("LICENSE") for _source, rel in files):
+        files.append((license_file, Path("LICENSE")))
+    return files
+
+
 def build_skill_ir(root):
     root = Path(root).resolve()
     manifest = package_manifest(root)
-    if not (root / "SKILL.md").is_file() and manifest.get("package_type") in {"skill-package", "skill-family"}:
+    if is_skill_package(root):
         from core.package import package_children, validate_package
         if not validate_package(root)["ok"]:
             raise ValueError("SkillPackage 结构无效，先运行 package-validate")
@@ -121,7 +135,7 @@ def build_skill_ir(root):
         return {
             "schema_version": "2.0",
             "generated_at": utc_now(),
-            "source": None,
+            "source": "SKILL.md" if (root / "SKILL.md").is_file() else None,
             "identity": {"name": manifest.get("name"), "description": manifest.get("description", "")},
             "contract": {"package_type": manifest.get("package_type"), "has_router": bool(manifest.get("router")), "child_count": len(children), "has_handoff": bool((manifest.get("contracts") or {}).get("handoff"))},
             "resources": {"children": [{"name": item["name"], "path": item["path"]} for item in children], "shared": manifest.get("shared", [])},
@@ -343,38 +357,14 @@ def output_eval(root):
     return write_report(root, "output_eval", {"ok": not findings and cases > 0, "status": "invalid" if findings else "present" if cases else "missing", "cases": cases, "files": [p.relative_to(root).as_posix() for p in files], "findings": findings, "evidence_status": "static;未运行模型或人工盲审", "limitations": ["不能证明 with-skill 相对 baseline 的实际质量提升"]}, "输出评测")
 
 
-BEHAVIOR_JUDGES = {"human-review", "model-replay", "same-context-agent", "client-smoke"}
-
-
 def validate_behavior_evidence(root, evidence):
-    """Validate version-bound evidence supplied by a real Skill run or review.
-
-    The checker validates provenance and case shape. It does not claim that a
-    model output is semantically correct; that judgment belongs to the stated
-    judge mode and its reviewer.
-    """
+    """Bind supplied observations to source without grading or executing them."""
     root = Path(root).resolve()
-    findings = []
-    if not isinstance(evidence, dict):
-        return {"ok": False, "status": "invalid", "findings": [{"code": "evidence-shape", "message": "行为证据必须是 JSON 对象"}], "cases": 0}
-    if evidence.get("source_sha256") != tree_sha256(root):
-        findings.append({"code": "stale-source", "message": "行为证据绑定的源摘要与当前 Skill 不一致"})
-    if evidence.get("judge_mode") not in BEHAVIOR_JUDGES:
-        findings.append({"code": "judge-mode", "message": f"judge_mode 必须是 {sorted(BEHAVIOR_JUDGES)} 之一"})
-    cases = evidence.get("cases")
-    if not isinstance(cases, list) or not cases:
-        findings.append({"code": "cases", "message": "行为证据至少需要一个实际案例"})
-        cases = []
-    for index, case in enumerate(cases):
-        if not isinstance(case, dict):
-            findings.append({"code": "case-shape", "case": index, "message": "每个行为案例必须是对象"})
-            continue
-        for key in ("input", "expected", "observed"):
-            if not isinstance(case.get(key), str) or not case[key].strip():
-                findings.append({"code": "case-field", "case": index, "message": f"行为案例缺少非空 {key}"})
-        if case.get("passed") is not True:
-            findings.append({"code": "case-failed", "case": index, "message": "行为证据中的每个案例必须明确 passed=true"})
-    return {"ok": not findings, "status": "present" if not findings else "invalid", "findings": findings, "cases": len(cases), "judge_mode": evidence.get("judge_mode")}
+    result = summarize_evidence(evidence)
+    if isinstance(evidence, dict) and evidence.get("source_sha256") != tree_sha256(root):
+        result["findings"].append({"code": "stale-source", "message": "行为证据绑定的源摘要与当前 Skill 不一致"})
+        result.update(ok=False, status="invalid", behavior_verified=False)
+    return result
 
 
 def record_behavior_evidence(root, evidence_file):
@@ -389,11 +379,11 @@ def record_behavior_evidence(root, evidence_file):
     result = validate_behavior_evidence(root, evidence)
     if result["ok"]:
         stored = dict(evidence)
-        stored["ok"] = True
-        stored["status"] = "present"
+        stored.update({key: value for key, value in result.items() if key != "cases"})
         stored["recorded_at"] = utc_now()
         stored["evidence_status"] = "version-bound;语义判断由声明的评审方式负责"
-        return write_report(root, "behavior_evidence", stored, "行为证据")
+        write_report(root, "behavior_evidence", stored, "行为证据")
+        return {**result, "recorded_at": stored["recorded_at"], "evidence_status": stored["evidence_status"]}
     result["evidence_status"] = "invalid-input"
     return write_report(root, "behavior_evidence", result, "行为证据")
 
@@ -432,7 +422,7 @@ def compile_targets(root, output_dir=None, targets=None):
     if invalid:
         raise ValueError(f"未知目标: {', '.join(invalid)}")
     manifest = package_manifest(root)
-    if manifest.get("package_type") in {"skill-package", "skill-family"}:
+    if is_skill_package(root):
         from core.package import validate_package
         validation = validate_package(root)
         if not validation["ok"]:
@@ -440,7 +430,7 @@ def compile_targets(root, output_dir=None, targets=None):
     if not trust_audit(root)["ok"]:
         raise ValueError("信任扫描发现阻断项；不能把疑似秘密编译进分发目标")
     # 在复制前固定源列表，避免自定义输出目录被递归编译进自身。
-    sources = list(iter_source_files(root))
+    sources = _distribution_files(root)
     if any(output == source.parent or output in source.parents for source, _rel in sources):
         raise ValueError("输出目录包含源文件；请选择空目录或 dist 下的新目录")
     output.mkdir(parents=True, exist_ok=True)
@@ -458,9 +448,7 @@ def compile_targets(root, output_dir=None, targets=None):
         adapter = {
             "target": target,
             "source_sha256": tree_sha256(root),
-            "capability": "source-plus-metadata",
-            "runtime_behavior_verified": False,
-            "limitations": "编译成功不等于目标客户端运行时兼容；需要目标客户端 smoke test",
+            **adapt_target(target_dir, target),
         }
         write_json(target_dir / "adapter.json", adapter)
         results.append(adapter)
@@ -473,7 +461,7 @@ def package_skill(root, output_dir=None, make_zip=True):
     output = _safe_output_dir(root, output_dir or root / "dist")
     if not trust_audit(root)["ok"]:
         raise ValueError("信任扫描发现阻断项；不能把疑似秘密打包")
-    sources = list(iter_source_files(root))
+    sources = _distribution_files(root)
     if any(output == source.parent or output in source.parents for source, _rel in sources):
         raise ValueError("输出目录包含源文件；请选择空目录或 dist 下的新目录")
     output.mkdir(parents=True, exist_ok=True)
@@ -519,7 +507,7 @@ def install_simulate(root, package_dir):
                 if target != temp_root and temp_root not in target.parents:
                     return write_report(root, "install_simulation", {"ok": False, "error": f"路径穿越: {info.filename}", "evidence_status": "executed"}, "安装模拟")
             handle.extractall(temp_root)
-        if (temp_root / "package.json").is_file() or package_manifest(temp_root).get("package_type") in {"skill-package", "skill-family"}:
+        if is_skill_package(temp_root):
             from core.package import validate_package, route_eval, handoff_check
             validation = validate_package(temp_root)
             routes = route_eval(temp_root)
@@ -553,9 +541,11 @@ def upgrade_check(root, previous):
         issues.append("当前版本没有高于上一版本")
     old_targets = set(previous_data.get("target_platforms", []))
     new_targets = set(current.get("target_platforms", []))
-    if old_targets - new_targets and new and old and new[0] == old[0]:
+    old_capabilities = {TARGET_ALIASES.get(target, target) for target in old_targets}
+    new_capabilities = {TARGET_ALIASES.get(target, target) for target in new_targets}
+    if old_capabilities - new_capabilities and new and old and new[0] == old[0]:
         issues.append("删除目标平台应至少提升 major 版本")
-    result = {"ok": not issues, "current": current.get("version"), "previous": previous_data.get("version"), "recommended": "major" if old and new and (old_targets - new_targets) else "patch-or-minor", "issues": issues, "migration_required": bool(issues or old_targets != new_targets), "evidence_status": "static-metadata"}
+    result = {"ok": not issues, "current": current.get("version"), "previous": previous_data.get("version"), "recommended": "major" if old and new and (old_capabilities - new_capabilities) else "patch-or-minor", "issues": issues, "migration_required": bool(issues or old_targets != new_targets), "evidence_status": "static-metadata"}
     return write_report(root, "upgrade_check", result, "升级检查")
 
 

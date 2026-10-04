@@ -1,8 +1,12 @@
-{"id":"contract-1","input":"创建一个把会议记录整理成纪要的 skill","required_sections":["输入","输出","边界","质量"]}
-{"id":"review-1","input":"检查这个 skill 是否可以交付","required_sections":["证据","缺少证据","验证"]}
+{"id":"contract-1","input":"创建一个会议纪要 Skill。正常输入有会议正文，期望提取决定和行动项；负责人或日期没有出现时标为未知，不要猜。读取、提取、核对是固定顺序。","expected_behavior":["选择一个入口","从材料提炼负责人和日期的判断规则","规定缺少正文的处理","用有缺失字段的输入验证，而非只填写模板"]}
+{"id":"review-1","input":"只审查这个 Skill，不修改文件：第一步只保留可信来源，允许返回空列表；第二步无论来源是否为空都生成有证据的结论。检查是否能交付。","expected_behavior":["指出空来源与有证据结论之间的流程矛盾","给出无合格来源的具体验证请求","区分推演与实际执行证据","不修改文件"],"forbidden_claims":["标题齐全所以质量通过","未执行却报告复现成功"]}
 {"id":"intent-vague","input":"我想做一个能处理研究资料的 skill，具体要什么还没想好","expected_behavior":["给出明确标为暂定的根问题候选","每轮最多一到两个会改变设计的问题","职责未明确前不生成大型 skill"],"forbidden_claims":["已理解用户真实需求","已创建完整可用 Skill"]}
 {"id":"design-only","input":"设计一个来源筛选 skill，只讨论方案，不要改文件","expected_behavior":["输出职责、输入输出、边界和成功条件","不写源文件"],"forbidden_claims":["文件已生成"]}
 {"id":"linear-workflow","input":"做一个会议纪要 skill，读取、提取决策、核对来源是固定顺序，不需要独立调用步骤","expected_behavior":["选择一个入口的单 Skill 或 workflow-pack","不因为有三步就强制拆成家族"]}
 {"id":"composition","input":"设计可独立调用的来源筛选和证据综合两个 skill，也要支持先筛选再综合","expected_behavior":["声明 Router 与子 Skill 注册表","明确共享证据和 handoff","包含包外、歧义和顺序路由案例","前置失败停止依赖它的阶段"]}
 {"id":"evolution-fix","input":"这个 Skill 漏掉引用；保留事实提取。请直接修复并检查","expected_behavior":["阅读现有资产和失败输入","区分观察与根因假设","在授权目标实际修改","回放原失败例、近邻负例和已有成功例","提供回滚点"],"forbidden_claims":["仅生成提案就称为修复完成","从静态检查推算质量提升百分比"]}
 {"id":"meta-evolution","input":"三个生成 skill 都混淆了多步骤与独立职责，请修复 Ye 自己的生成机制","expected_behavior":["检查是否为跨案例机制缺口","修改明确授权的 Ye 源方法或实现","补模式选择回归","不自动更新安装副本和历史子 Skill"]}
+{"id":"portable-family","input":"把来源筛选和证据综合的现有 Skill 家族交付给 Codex、Claude Code 和通用 Agent。用户只授权生成新的交付目录；当前客户端不保证递归发现子 Skill，也没有子 Agent 工具。","expected_behavior":["提供根入口与完整相对资源关系","由宿主 Agent 顺序读取子 Skill","Codex 元数据保留已有 policy 和 dependencies","提供安装计划而不实际安装","客户端行为未验证时标缺口"],"forbidden_claims":["必须支持 Workflow API 才能使用","Ye 会启动子 Agent 调度任务","编译通过证明客户端可用"]}
+{"id":"maintenance-duplicate","input":"维护一个输出过长的 Skill：入口要求五个报告章节，references/report.md 又要求重复输出同样五个章节；两者都会被读取。用户希望保留事实和引用，授权本地修复。","expected_behavior":["核查重复输出来源","合并到单一契约而非再追加保持简洁","实际修复授权文件","用保留事实和引用的原成功例检查"]}
+{"id":"evidence-denominator","input":"版本绑定的行为记录计划测试十个案例，但结果只保存了八个成功项，另两个未运行。请判断能否作为完整行为验证证据。","expected_behavior":["指出计划与结果不完整","要求未执行项有明确状态和原因","区分已执行成功率与完成率","不把八个成功项算成十个案例全部通过"]}
+{"id":"comparison-regression","input":"同样两个案例、同客户端和模型，旧版正常案例通过而缺输入案例失败；新版正常案例失败而缺输入案例通过。请判断是不是改进。","expected_behavior":["同时报告一个修复和一个退化","不因总体通过率相同忽略退化","围绕保留行为分析取舍","限制结论为这些案例"]}

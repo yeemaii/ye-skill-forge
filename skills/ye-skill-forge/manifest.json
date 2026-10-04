@@ -1,10 +1,10 @@
 {
   "name": "ye-skill-forge",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "从用户结果、真实材料到可复用 Agent Skill 或多 Skill 包的设计、验证、交付和证据驱动进化系统。",
   "author": "Ye",
   "owner": "Ye",
-  "updated_at": "2026-10-03",
+  "updated_at": "2026-10-04",
   "review_due": "2027-01-02",
   "status": "active",
   "maturity_tier": "library",
@@ -12,22 +12,20 @@
   "context_budget_tier": "production",
   "review_cadence": "quarterly",
   "license": "MIT",
-  "target_platforms": ["openai", "claude", "generic", "agent-skills-compatible", "vscode"],
+  "target_platforms": ["codex", "claude-code", "generic"],
   "factory_components": ["templates", "methods", "scripts", "evals", "tests", "examples", "reports", "security", "dist"],
   "keywords": ["元技能", "skill工程", "skill生命周期", "评测", "打包", "发布"],
   "main": "SKILL.md",
   "capabilities": [
     "create-skill", "evaluate-skill", "improve-skill", "validate-skill",
     "skill-ir", "trigger-eval", "output-eval", "trust-audit", "compile-targets",
-    "package", "install-simulation", "upgrade-check", "registry-audit",
+    "package", "install-simulation", "upgrade-check", "registry-audit", "portable-adapters", "behavior-compare",
     "telemetry-drift", "review-gates", "release-check", "intent-clarification", "domain-method-design", "behavior-evidence",
     "skill-package", "package-scaffold", "route-evaluation", "handoff-contract", "evidence-evolution", "evolution-preview", "evolution-apply", "evolution-rollback", "package-review"
   ],
   "platforms": {
-    "openai": "源 skill 加目标适配元数据；需在目标客户端复测运行时行为",
-    "claude": "源 skill 加目标适配元数据；需在目标客户端复测运行时行为",
-    "generic": "中立源格式和适配元数据",
-    "agent-skills-compatible": "中立源格式；平台运行时效果仍需独立验证",
-    "vscode": "Agent Skills 源格式加 VS Code 说明；需在 VS Code 客户端复测"
+    "codex": "完整源目录，可生成最小 agents/openai.yaml；需在 Codex 客户端复测",
+    "claude-code": "完整源目录和根入口；需在 Claude Code 客户端复测",
+    "generic": "中立源格式和安装计划；按宿主能力降级并独立复测"
   }
 }

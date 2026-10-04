@@ -308,6 +308,14 @@ class MetaTests(unittest.TestCase):
             rollback_evolution(root, result["rollback_record"])
             self.assertEqual((root / "SKILL.md").read_bytes(), original)
 
+    def test_evolution_accepts_documented_client_smoke_replay(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root, packet, plan, evidence, _original = self.evolution_fixture(temp)
+            replay = json.loads(evidence.read_text(encoding="utf-8"))
+            replay["judge_mode"] = "client-smoke"
+            write_json(evidence, replay)
+            self.assertTrue(apply_evolution(root, packet, plan, evidence, apply=True)["applied"])
+
     def test_evolution_rejects_missing_replay_stale_source_and_escaped_changes(self):
         with tempfile.TemporaryDirectory() as temp:
             root, packet, plan, _evidence, original = self.evolution_fixture(temp)

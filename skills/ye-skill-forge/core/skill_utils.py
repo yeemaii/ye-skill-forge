@@ -148,8 +148,8 @@ def validate_skill(skill_path):
                         execution = {}
                     if execution.get("context") not in {"inline", "fork"}:
                         add("error", "compatibility-context", "compatibility.execution.context must be inline or fork.")
-                    if execution.get("shell") not in {"bash", "powershell"}:
-                        add("error", "compatibility-shell", "compatibility.execution.shell must be bash or powershell.")
+                    if execution.get("shell") not in {"bash", "powershell", "environment"}:
+                        add("error", "compatibility-shell", "compatibility.execution.shell must be environment, bash or powershell.")
                     trust = compatibility.get("trust", {})
                     if not isinstance(trust, dict):
                         trust = {}

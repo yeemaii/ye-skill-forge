@@ -30,16 +30,26 @@ def local_path(root: Path, value: Any) -> Path:
     return target
 
 
-def _read_manifest(root: Path) -> Dict[str, Any]:
+def read_skill_manifest(root: Path) -> Dict[str, Any]:
+    root = Path(root)
+    values = {}
     for name in ("package.json", "manifest.json"):
         path = root / name
-        if path.is_file():
-            try:
-                value = json.loads(path.read_text(encoding="utf-8-sig"))
-            except (OSError, json.JSONDecodeError):
-                return {}
-            return value if isinstance(value, dict) else {}
-    return {}
+        if not path.is_file():
+            continue
+        try:
+            value = json.loads(path.read_text(encoding="utf-8-sig"))
+        except (OSError, json.JSONDecodeError):
+            value = {}
+        if isinstance(value, dict):
+            values[name] = value
+    package = values.get("package.json", {})
+    manifest = values.get("manifest.json", {})
+    if package.get("package_type") in ("skill-package", "skill-family"):
+        return package
+    if manifest.get("package_type") in ("skill-package", "skill-family"):
+        return manifest
+    return manifest or (package if "package_type" in package else {})
 
 
 def package_children(root: Path, manifest: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -66,13 +76,13 @@ def package_children(root: Path, manifest: Dict[str, Any]) -> List[Dict[str, Any
 
 def validate_package(package_path: str | Path) -> Dict[str, Any]:
     root = Path(package_path).expanduser().resolve()
-    manifest = _read_manifest(root)
+    manifest = read_skill_manifest(root)
     findings = []
     if not root.is_dir():
         return {"ok": False, "package": str(root), "findings": [{"severity": "error", "code": "package-dir", "message": "包目录不存在"}]}
     if not manifest:
         findings.append({"severity": "error", "code": "package-manifest", "message": "需要 package.json 或含 package_type 的 manifest.json"})
-    if manifest.get("package_type") not in {"skill-package", "skill-family"}:
+    if manifest.get("package_type") not in ("skill-package", "skill-family"):
         findings.append({"severity": "error", "code": "package-type", "message": "包清单必须声明 package_type=skill-package 或 skill-family"})
     router = manifest.get("router")
     try:
@@ -88,6 +98,13 @@ def validate_package(package_path: str | Path) -> Dict[str, Any]:
         router_result = {"ok": not any(item["severity"] == "error" for item in router_findings), "findings": router_findings}
         if not router_result["ok"]:
             findings.append({"severity": "error", "code": "router-invalid", "message": "Router SKILL.md 未通过结构校验"})
+    root_entry = root / "SKILL.md"
+    if root_entry.is_file():
+        root_findings = validate_skill(root)
+        if any(item["severity"] == "error" for item in root_findings):
+            findings.append({"severity": "error", "code": "root-entry-invalid", "message": "包根 SKILL.md 未通过结构校验"})
+        elif isinstance(manifest.get("name"), str) and load_skill(root)[2].get("name") != manifest["name"]:
+            findings.append({"severity": "error", "code": "root-entry-name", "message": "包根 SKILL.md 名称必须与包清单 name 一致"})
     try:
         children = package_children(root, manifest)
     except ValueError as exc:

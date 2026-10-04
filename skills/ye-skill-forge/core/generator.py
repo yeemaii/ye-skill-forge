@@ -124,7 +124,7 @@ def generate_manifest(skill_data):
         "created_by": "ye-skill-forge",
         "template": skill_data.get("template", "standard"),
         "target_format": "agent-skills-compatible",
-        "target_platforms": ["openai", "claude", "generic", "agent-skills-compatible", "vscode"],
+        "target_platforms": ["codex", "claude-code", "generic"],
         "capabilities": skill_data.get("capabilities", []),
         "design": {
             "root_problem": skill_data.get("root_problem") or skill_data.get("job", ""),
@@ -161,20 +161,18 @@ def generate_interface(skill_data):
     return {
         "compatibility": {
             "canonical_format": "agent-skills",
-            "adapter_targets": ["openai", "claude", "generic", "agent-skills-compatible", "vscode"],
+            "adapter_targets": ["codex", "claude-code", "generic"],
             "activation": {"mode": "manual", "paths": []},
-            "execution": {"context": "inline", "shell": "powershell"},
+            "execution": {"context": "inline", "shell": skill_data.get("shell", "environment")},
             "trust": {
                 "source_tier": "local",
                 "remote_inline_execution": "forbid",
                 "remote_metadata_policy": "allow-metadata-only",
             },
             "degradation": {
-                "openai": "源格式加适配元数据；目标客户端行为需复测",
-                "claude": "源格式加适配元数据；目标客户端行为需复测",
-                "generic": "中立源格式",
-                "agent-skills-compatible": "中立源格式；运行时效果需独立验证",
-                "vscode": "源格式加 VS Code 说明；目标客户端行为需复测",
+                "codex": "完整 Skill 目录和可选 openai.yaml；安装与行为需客户端复测",
+                "claude-code": "完整 Skill 目录；由宿主 Agent 顺序读取资源，原生调用需复测",
+                "generic": "完整中立源格式；按实际文件读写与脚本能力降级，不依赖子 Agent",
             },
         },
         "interface": {

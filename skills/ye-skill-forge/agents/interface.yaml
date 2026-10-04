@@ -5,24 +5,20 @@ interface:
 compatibility:
   canonical_format: "agent-skills"
   adapter_targets:
-    - "openai"
-    - "claude"
+    - "codex"
+    - "claude-code"
     - "generic"
-    - "agent-skills-compatible"
-    - "vscode"
   activation:
     mode: "manual"
     paths: []
   execution:
     context: "inline"
-    shell: "powershell"
+    shell: "environment"
   trust:
     source_tier: "local"
     remote_inline_execution: "forbid"
     remote_metadata_policy: "allow-metadata-only"
   degradation:
-    openai: "源格式加适配元数据；目标客户端行为需复测"
-    claude: "源格式加适配元数据；目标客户端行为需复测"
-    generic: "中立源格式"
-    agent-skills-compatible: "中立源格式；运行时效果需独立验证"
-    vscode: "源格式加 VS Code 说明；目标客户端行为需复测"
+    codex: "完整 Skill 目录和可选 openai.yaml；安装与行为需客户端复测"
+    claude-code: "完整 Skill 目录；由宿主 Agent 使用资源，原生调用需复测"
+    generic: "中立源格式；按实际文件和脚本能力降级，不依赖子 Agent"

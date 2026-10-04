@@ -39,6 +39,7 @@ from core.intent import clarify
 from core.package import create_package_scaffold, handoff_check, route_eval, validate_package
 from core.evolution import apply_evolution, build_evidence_packet, evolution_summary, record_evolution, rollback_evolution
 from core.review import review_skill
+from core.behavior import compare_evidence
 
 
 def default_skill_output(slug):
@@ -155,6 +156,14 @@ def command_behavior_evidence(args):
         return emit(record_behavior_evidence(args.skill_dir, args.evidence_file))
     except (ValueError, OSError) as exc:
         return emit({"ok": False, "error": str(exc)})
+
+
+def command_behavior_compare(args):
+    baseline = read_json(args.baseline_file, None)
+    candidate = read_json(args.candidate_file, None)
+    if not isinstance(baseline, dict) or not isinstance(candidate, dict):
+        return emit({"ok": False, "error": "比较需要两份有效 JSON 行为记录"})
+    return emit(compare_evidence(baseline, candidate))
 
 
 def command_trust(args):
@@ -301,6 +310,10 @@ def build_parser():
     behavior = skill_parser("behavior-evidence", "记录并绑定真实行为验证证据")
     behavior.add_argument("--evidence-file", required=True)
     behavior.set_defaults(func=command_behavior_evidence)
+    compare = sub.add_parser("behavior-compare", help="比较外部执行的同案例行为记录，不运行模型或子 Skill")
+    compare.add_argument("--baseline-file", required=True)
+    compare.add_argument("--candidate-file", required=True)
+    compare.set_defaults(func=command_behavior_compare)
     skill_parser("trust", "扫描脚本权限和秘密模式")
     sub.choices["trust"].set_defaults(func=command_trust)
     skill_parser("registry-audit", "审计版本和分发元数据")

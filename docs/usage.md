@@ -19,6 +19,8 @@ Ye 用来把工作流、SOP、提示词、脚本或已有 skill 整理成可复�
 
 将仓库中的 `skills/ye-skill-forge/` 目录作为一个完整 skill 包安装到你的 agent skill 目录。包的运行时入口是 `SKILL.md`；不要只复制其中的一个文件。
 
+Ye 的核心方法不依赖特定 Agent 工具。Codex、Claude Code 和其他兼容应用都使用完整目录；需要交付适配时使用三种目标，见 `methods/portability.md`。适配器提供根入口、必要元数据和安装计划，不安装、不启动子 Agent。只有读取能力时可做设计和审查；编辑与脚本能力分别决定能否修改文件、运行工程检查。缺少能力时报告相应验证缺口。
+
 安装完成后，在 agent 对话中直接说明目标、输入材料和交付要求。例如：
 
 > 请把 `D:\docs\meeting-sop.md` 创建为一个可复用 skill。先确认目标用户、触发条件、输入输出契约和边界，再生成文件。
@@ -51,9 +53,13 @@ python scripts/ye.py intent --idea "我想做一个能处理研究资料的 skil
 
 提供已有 skill 的目录，让 Ye 读取入口文件、manifest、interface、脚本、评测样例和已有报告。审查结果会区分已观察事实、推断原因、待验证假设和阻塞项。
 
+同时沿具体请求检查决策矛盾、资源是否被加载、缺失输入和交接失败。每项发现说明请求、对应指令、错误行为和复现方式；CLI 的结构清单不替代语义审查。方法见 `methods/semantic-review.md`。
+
 ### 改进
 
 说明反馈来源和允许修改的范围。Ye 应保留已验证的有效行为，并把每次改动绑定到正例、近邻负例或回归例；只提供方案时，不会把提案描述成已修改。
+
+维护同时考虑合并、删除重复规则和更新过期依赖，检查调用者后只验证受影响行为；不默认通过增加更多指令修复问题。
 
 ### 交付准备
 
@@ -72,6 +78,8 @@ python scripts/ye.py review ../../.ye/skills/research-workbench
 ```
 
 这些命令假定当前目录为 `skills/ye-skill-forge/`，生成位置在项目 `.ye/` 中。单任务多个步骤使用一个入口的 workflow-pack，独立职责才拆为 family。路由案例包括正例、包外负例、歧义和有序执行计划；Router/子 Skill 的结构通过不能代表真实路由准确率。
+
+实际使用时同一宿主 Agent 可以读取 Router 和子 Skill 并顺序完成。跨应用编译为缺少根入口的包生成 `SKILL.md`，完整保留相对路径，避免依赖递归发现。子 Skill 若需要独立安装和触发，另外验证客户端注册及共享资源路径。Ye 不提供子 Skill 或子 Agent 的调度引擎。
 
 ### 反馈进化
 
@@ -105,6 +113,8 @@ python scripts/ye.py evolve <skill-dir> rollback --packet reports/evolution/<app
 
 正常使用 Ye 不需要手动运行 CLI。维护 Ye 本身或进行发布验证时，在 `skills/ye-skill-forge/` 目录执行：
 
+CLI 需要 Python 3.10+。首次运行前执行 `python -m pip install -r requirements.txt` 安装 PyYAML；没有脚本执行能力的宿主仍可使用 Ye 的方法完成设计和审查，但应报告工程验证缺口。
+
 ```powershell
 python scripts/ye.py --help
 python scripts/ye.py intent --idea "我想做一个能处理研究资料的 skill"
@@ -112,7 +122,7 @@ python scripts/ye.py create "会议纪要整理" --slug note-cleanup --job "把�
 python scripts/ye.py review <skill-dir>
 python scripts/ye.py skill-ir <skill-dir>
 python scripts/ye.py trust <skill-dir>
-python scripts/ye.py compile <skill-dir> --target openai --target claude --target generic --target vscode
+python scripts/ye.py compile <skill-dir> --target codex --target claude-code --target generic
 python scripts/ye.py package <skill-dir> --output-dir dist --zip
 python scripts/ye.py install-simulate <skill-dir> --package-dir dist
 python scripts/ye.py release-check <skill-dir> --package-dir dist
@@ -129,7 +139,7 @@ python scripts/ye.py review .
 
 脚本默认把未指定的 Skill 写入当前项目 `.ye/skills/`，报告写入目标目录的 `reports/`，打包结果写入指定的 `dist/`；原始遥测、秘密、凭据和私有对话不应进入发布包。本地 .env、虚拟环境和编辑器状态会统一排除；有意分发的 .env.example/sample/template 会检查凭据，保留空值、明确占位符和变量引用。信任扫描的秘密阻断项会阻止编译或归档，但静态扫描不能保证检出所有敏感数据。
 
-编译完整复制运行所需引用、脚本和资产；输出目录在源包内时必须位于 dist/。编译目标子目录非空会拒绝写入，避免旧资源残留。先沿正式入口运行代表性请求，把 `source_sha256`、`judge_mode` 和通过案例写入 JSON，再运行 `python scripts/ye.py behavior-evidence <skill-dir> --evidence-file evidence.json`。`review` 会读取与当前源绑定的行为证据；缺少时对 production/library/governed 保留缺口，过期或无效时阻断，不能靠静态样例通过。
+编译完整复制运行所需引用、脚本和资产；目标可选 `codex`、`claude-code`、`generic`，旧参数 `openai`、`claude` 分别兼容为前两者。输出目录在源包内时必须位于 dist/。编译目标子目录非空会拒绝写入，避免旧资源残留。先沿正式入口运行代表性请求，推荐固定完整 `suite` 并保存通过、失败和未执行项，再运行 `python scripts/ye.py behavior-evidence <skill-dir> --evidence-file evidence.json`。需要比较旧版和候选版时使用 `python scripts/ye.py behavior-compare --baseline-file baseline.json --candidate-file candidate.json`。`review` 会读取与当前源绑定的行为证据；缺少、失败、未执行或过期记录都不会被写成行为通过，不能靠静态样例通过。
 
 触发分组必须是请求字符串或含 input 的对象列表；输出 JSON/JSONL 必须包含 input 与期望结果或评审标准。格式无效返回 findings 并阻断 review，不能靠文本行数获得通过。
 

@@ -1,15 +1,17 @@
 ---
 name: ye-skill-forge
-description: 从模糊想法、工作流或失败反馈创建、评估、改进并交付可复用的 Agent Skill 或多 Skill 包。用于澄清 Skill 需求、设计职责与路由、生成文件、补评测、组合编排和证据驱动进化；不执行目标 Skill 的业务任务。
+description: 创建、审查、改进和维护可复用的 Agent Skill 或多 Skill 包。用于从想法与材料提炼方法、设计职责和交接、生成文件、验证行为及跨应用交付；不作为目标 Skill 或子 Agent 的运行调度器。
 metadata:
   author: Ye
-  version: "2.1.0"
+  version: "2.2.0"
   language: zh-CN
 ---
 
 # Ye Skill Forge
 
 把用户意图和真实材料变成最小、完整、可使用、可验证的 Skill。用模型理解领域方法和设计决策，用脚本检查确定性约束；模板只提供骨架，不能替代领域工作流。衡量“更好”的依据是用户要得到的结果、稳定可复用的方法和真实使用证据。
+
+Ye 的主要职责是创建、审查、改进和维护 Skill。可以设计编排规则、交接契约并验证产物；实际业务、子 Skill 加载和可选委派由宿主 Agent 执行。CLI 不启动子 Agent、不执行目标业务、不提供任务调度引擎。验证中执行代表性业务案例仅用于检验 Skill。
 
 ## 选择工作模式
 
@@ -20,6 +22,7 @@ metadata:
 | 开始创建、修改或重构 | 构建 | 实际文件、具体示例、验证结果 |
 | 审查、比较、准备交付 | 审查 | 按严重度排序的发现、证据和缺口 |
 | 失败反馈、吸收材料、自进化 | 进化 | 根因假设、资产决策、实际改动或提案、回归和回滚 |
+| 重复规则、过期资源、依赖变化 | 维护 | 复用、合并、删除或更新决策及受影响行为验证 |
 
 复合请求顺序执行：审查并优化要完成审查和本地修改；分析失败并更新要完成回归。用户只要分析时不写源文件。请求已授权的可逆本地修改不需要再次确认。安装、外部发布和传播按用户已有授权范围执行。
 
@@ -37,7 +40,7 @@ metadata:
 - 真正职责仍不清楚时保持 `clarify`；低风险的名称、格式和环境细节可以作为假设，避免为了填表反复追问。少数关键问题仍未解决时继续澄清，不因固定轮数而冒充理解。
 - 创建前查看用户提供或当前项目可见的相邻 Skill 和已有资产。同一职责优先改进或复用；单次任务不强制包装成 Skill。
 
-详细交互和简报字段见 [methods/intent.md](methods/intent.md)，领域方法设计见 [methods/domain-design.md](methods/domain-design.md)。`intent` 是字段检查助手，不具备领域推理能力；模型负责把用户目标、材料和已有做法转成可执行设计。
+详细交互和简报字段见 [methods/intent.md](methods/intent.md)，领域方法设计见 [methods/domain-design.md](methods/domain-design.md)。`intent` 是字段检查助手，不具备领域推理能力；模型负责把用户目标、材料和已有做法转成可执行设计。设计或修正 description、触发边界时读 [methods/trigger-engineering.md](methods/trigger-engineering.md)。
 
 ## 选择最小合适形态
 
@@ -51,14 +54,26 @@ metadata:
 
 组合前读 [methods/composition.md](methods/composition.md)。完整案例见 [examples/research-package/](examples/research-package/)；按当前任务选择相关案例，不照搬无关流程。
 
+多 Skill 不要求多 Agent：主 Agent 可以按阶段读取子 Skill 并顺序完成。交付时提供明确入口和相对于声明文件的资源路径，不假设客户端递归发现子 Skill；原生调用、并行和子 Agent 都是宿主的可选能力。
+
+## 根据宿主能力工作
+
+先确认当前可用的材料读取、文件编辑、脚本执行和验证能力。只有读取能力时给出设计或审查；有编辑能力才交付文件，有脚本执行能力才运行 CLI。没有独立执行或客户端环境时报告行为验证缺口，不以静态检查补充虚构的运行结果。不依赖固定工具名、模型、shell 或多 Agent 功能；使用当前环境可用的等价工具。
+
+工程 CLI 需要 Python 3.10+ 和 [requirements.txt](requirements.txt) 中的 PyYAML；缺少依赖时报告工程检查缺口，在已有安装授权内使用 `python -m pip install -r <ENGINE_ROOT>/requirements.txt`。不以工具不可用为由跳过仍可完成的设计或审查。
+
+跨应用交付时读 [methods/portability.md](methods/portability.md)。支持 `codex`、`claude-code` 和 `generic`；其他应用走通用方案，出现真实差异再适配。适配器生成入口、元数据和安装计划，不修改客户端设置或安装副本。
+
 ## 创建和改进文件（工作流）
 
 1. **锁定路径和基线**：区分运行 Ye 的 `ENGINE_ROOT`、用户授权维护的 `TARGET_ROOT`、生成输出和运行状态。读取已有文件并保留用户改动。新 Skill 优先写入用户指定路径，否则使用项目 `.ye/skills/<name>/`；不得把 Ye 源目录或安装目录当作子 Skill 的默认父目录。改 Ye 本身以用户授权的源仓库为目标，不自动同步安装副本。
-2. **设计先于模板**：从简报写可路由的 description、具体决策、缺失输入处理、失败分支和输出契约。只加入会改变行为的规则。脚本用于重复且确定的操作，资源按需加载；不要为简单 Skill 增加角色、报告或配置负担。
+2. **设计先于模板**：从材料中区分稳定决策、确定性处理、案例事实和临时补救，把有效方法写成适用条件、判断依据、行动、失败处理和完成证据。再写 description、输出契约和必要资源。只加入会改变行为的规则，不为简单 Skill 增加角色、报告或配置负担。
 3. **产生可执行资产**：写完成的 `SKILL.md` 和实际需要的引用、脚本、示例；沿用 Ye 工程约定时同时生成 manifest 与 interface。manifest 的假设、职责和入口保持一致。不要给生成 Skill 默认复制 Ye 的能力列表或替用户决定许可证。
-4. **验证并交付**：运行结构检查、实际脚本 smoke test，以及代表性正例、近邻负例和原成功例。复杂行为尽量用模型重放、实际客户端或独立评审；将通过的行为证据绑定当前源摘要后运行 `behavior-evidence` 记录。没有可用执行环境就保留明确缺口。静态通过不能证明输出更好。
+4. **验证并交付**：运行结构检查、实际脚本 smoke test，以及代表性正例、近邻负例和原成功例。复杂行为尽量用模型重放、实际客户端或独立评审；将完整行为证据绑定当前源摘要后运行 `behavior-evidence` 记录，保留失败和未执行项。没有可用执行环境就保留明确缺口。静态通过不能证明输出更好。
 
 `create` 和 `package-init` 是骨架命令。缺少具体信息时结果只能标为 draft/scaffold；完整生成可使用 `create --brief-file ... --require-ready`。检查输出是否仍含泛化占位指令，替换为真实领域流程后再称为完成。
+
+审查和重大修改时读 [methods/semantic-review.md](methods/semantic-review.md)。结构清单之后，沿具体输入检查矛盾、缺失前置条件、资源可达性和流程断点。发现必须说明触发请求、错误行为、对应位置和验证方式；不要用标题齐全替代方法有效性。
 
 ## 两种进化对象
 
@@ -70,6 +85,8 @@ metadata:
 `improve` 生成建议；`evolve record` 保存提案。已授权的改进要继续落到文件。可由作者直接做保守修改，也可使用 `evolve apply` 预览显式变更集，提供版本绑定的回放记录后用 `--apply` 应用；修改 Ye 自身另需 `--allow-self-edit`。应用保存旧文件，可用 `evolve rollback` 恢复；存在后续修改时拒绝覆盖。
 
 部署状态可为 `provisional / accepted / quarantined / rejected`。本地应用默认仍为 provisional；accepted 需与风险匹配的行为证据。反馈文本、遥测次数和同一模型自评不能单独证明效果提升，也不能称为独立评审。原始私有对话和回放保留在本地状态，不进入分发包。
+
+维护时读 [methods/operations.md](methods/operations.md)。同时考虑合并和删除无效规则；依赖、触发或交接变化时验证受影响路径，保留用户改动及有效行为。
 
 ## 按风险增加门禁（验证）
 
@@ -83,6 +100,8 @@ metadata:
 工具说明见 `python <ENGINE_ROOT>/scripts/ye.py --help`。`review` 同时支持单 Skill 和包；`package-validate`、`route-eval`、`handoff-check` 检查组合结构。结构门禁通过、安装模拟通过和真实客户端效果是不同结论。
 
 需要交付时读 [methods/release.md](methods/release.md) 和 [methods/portability.md](methods/portability.md)；需要完整门禁时读 [methods/lifecycle.md](methods/lifecycle.md)。选择依据见 [methods/design-selection.md](methods/design-selection.md)，领域设计见 [methods/domain-design.md](methods/domain-design.md)，证据规则见 [methods/evidence.md](methods/evidence.md)。不要默认加载所有参考文件。
+
+比较效果时读 [methods/behavior-testing.md](methods/behavior-testing.md)。固定完整案例集并保存通过、失败和未执行项，区分同案例比较与单次通过。宿主或评审者提供实际观察，Ye 只校验记录、版本和比较条件，不自动执行实验。
 
 ## 完成标准
 

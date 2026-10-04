@@ -14,6 +14,7 @@ from uuid import uuid4
 from core.lifecycle import GENERATED_DIRS, iter_source_files, package_manifest, read_json, tree_sha256, trust_audit, write_json
 from core.package import local_path, route_eval, validate_package
 from core.skill_utils import is_within, load_skill, validate_skill
+from core.behavior import BEHAVIOR_JUDGES
 
 
 def _now() -> str:
@@ -194,7 +195,7 @@ def apply_evolution(skill_path, packet_path, change_file, evidence_file=None, ap
     if packet.get("preserved_behaviors"):
         required.add("preserved-success")
     kinds = {case["kind"] for case in cases if isinstance(case, dict) and isinstance(case.get("kind"), str)} if isinstance(cases, list) else set()
-    replay_ready = valid_cases and required.issubset(kinds) and evidence.get("source_sha256") == baseline and evidence.get("candidate_sha256") == candidate_hash and evidence.get("judge_mode") in {"human-review", "model-replay", "same-context-agent"}
+    replay_ready = valid_cases and required.issubset(kinds) and evidence.get("source_sha256") == baseline and evidence.get("candidate_sha256") == candidate_hash and isinstance(evidence.get("judge_mode"), str) and evidence["judge_mode"] in BEHAVIOR_JUDGES
     result = {"ok": True, "applied": False, "source_sha256": baseline, "candidate_sha256": candidate_hash, "changed_files": [f["path"] for f in files], "validation": validation, "replay_ready": bool(replay_ready), "required_case_kinds": sorted(required), "evidence_status": "candidate-structure;回放记录由调用者提供，未独立验证语义", "deployment_status": "provisional"}
     if not apply:
         return result
