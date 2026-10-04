@@ -28,7 +28,7 @@ def evaluate_skill(skill_path):
     try:
         root, _skill_file, metadata, _frontmatter, body = load_skill(skill_path)
     except (FileNotFoundError, ValueError, yaml.YAMLError):
-        return {"path": str(skill_path), "structural_findings": findings, "checklist": [], "manual_review": []}
+        return {"ok": False, "path": str(skill_path), "structural_findings": findings, "checklist": [], "manual_review": [], "evidence_status": "static-checklist"}
 
     description = metadata.get("description", "")
     checklist = [{
@@ -58,7 +58,9 @@ def evaluate_skill(skill_path):
     })
 
     return {
+        "ok": not any(item["severity"] == "error" for item in findings),
         "path": str(root),
+        "evidence_status": "static-checklist",
         "structural_findings": findings,
         "checklist": checklist,
         "manual_review": [

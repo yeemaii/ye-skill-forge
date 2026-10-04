@@ -1,11 +1,11 @@
 {
   "name": "ye-skill-forge",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "从用户结果、真实材料到可复用 Agent Skill 或多 Skill 包的设计、验证、交付和证据驱动进化系统。",
   "author": "Ye",
   "owner": "Ye",
-  "updated_at": "2026-10-04",
-  "review_due": "2027-01-02",
+  "updated_at": "2026-10-05",
+  "review_due": "2027-01-03",
   "status": "active",
   "maturity_tier": "library",
   "lifecycle_stage": "library",
@@ -20,7 +20,7 @@
     "create-skill", "evaluate-skill", "improve-skill", "validate-skill",
     "skill-ir", "trigger-eval", "output-eval", "trust-audit", "compile-targets",
     "package", "install-simulation", "upgrade-check", "registry-audit", "portable-adapters", "behavior-compare",
-    "telemetry-drift", "review-gates", "release-check", "intent-clarification", "domain-method-design", "behavior-evidence",
+    "telemetry-drift", "review-gates", "release-check", "intent-clarification", "domain-method-design", "behavior-evidence", "user-guidance", "optional-prior-art",
     "skill-package", "package-scaffold", "route-evaluation", "handoff-contract", "evidence-evolution", "evolution-preview", "evolution-apply", "evolution-rollback", "package-review"
   ],
   "platforms": {

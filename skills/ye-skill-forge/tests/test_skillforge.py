@@ -2,6 +2,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 import yaml
@@ -143,6 +144,29 @@ class SkillForgeTests(unittest.TestCase):
                 self.assertNotIn("{skill_name}", rendered)
                 self.assertNotIn("{quality_standards}", rendered)
                 self.assertIn("## Workflow", rendered)
+
+    def test_user_template_tokens_are_preserved_without_cascading_replacement(self):
+        data = sample_data()
+        data["job"] = "Preserve literal {title} and {output_format} tokens for the user's document."
+        for template in ("minimal", "standard", "advanced"):
+            with self.subTest(template=template):
+                rendered = generate_skill(data, template)
+                self.assertIn(data["job"], rendered)
+
+    def test_unknown_token_in_original_template_is_rejected(self):
+        with patch("core.generator.load_template", return_value="Use {undeclared_template_field}"):
+            with self.assertRaises(ValueError):
+                generate_skill(sample_data())
+
+    def test_literal_template_tokens_do_not_block_structural_validation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = sample_data()
+            data["job"] = "Preserve the user's literal {output_format} token in document templates."
+            target = Path(temp) / data["name"]
+            create_package(data, target)
+            findings = validate_skill(target)
+            self.assertFalse(any(item["severity"] == "error" for item in findings), findings)
+            self.assertTrue(any(item["code"] == "template-token-review" for item in findings))
 
     def test_save_creates_manifest_and_interface(self):
         with tempfile.TemporaryDirectory() as temp:

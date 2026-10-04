@@ -1,7 +1,7 @@
 interface:
   display_name: "Ye Skill Forge"
-  short_description: "从根问题到单 Skill 或多 Skill 包的设计、验证和进化"
-  default_prompt: "使用 $ye-skill-forge 先澄清根问题，再创建、审查、组合、改进或交付可复用 Skill，并保留可核查证据。"
+  short_description: "按需引导创建、审查和改进 Skill，支持可选先例研究与效果验证"
+  default_prompt: "使用 $ye-skill-forge 帮我创建或改进 Skill；目标不清时引导我选择方向，明确时直接完成并验证。"
 compatibility:
   canonical_format: "agent-skills"
   adapter_targets:

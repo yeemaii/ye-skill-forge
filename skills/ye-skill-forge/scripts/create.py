@@ -124,10 +124,18 @@ def collect_argument_brief(args, slug):
 
 
 def build_description(data):
-    exclusions = "; ".join(data.get("exclusions", []))
-    description = f"{data['job']}。当用户要求重复执行这项工作时使用。"
-    if exclusions:
-        description += f"不要用于：{exclusions}。"
+    def joined(value):
+        if isinstance(value, str):
+            value = [value]
+        return "; ".join(str(item).strip() for item in (value or []) if str(item).strip())
+
+    boundaries = joined(data.get("boundaries") or data.get("exclusions", []))
+    near_neighbors = joined(data.get("near_neighbors", []))
+    description = str(data["job"]).strip().rstrip("。.") + "。"
+    if boundaries:
+        description += f"边界：{boundaries}。"
+    if near_neighbors:
+        description += f"不要用于：{near_neighbors}。"
     return " ".join(description.split())[:1024]
 
 
@@ -174,7 +182,10 @@ def create_package(skill_data, output_dir):
         skill_data["design_pattern"] = intent["design_pattern"]
     if not skill_data.get("composition"):
         skill_data["composition"] = intent["composition"]
-    skill_data["description"] = build_description(skill_data)
+    description = skill_data.get("description")
+    if description is not None and not isinstance(description, str):
+        raise ValueError("description 必须是字符串")
+    skill_data["description"] = " ".join(description.split()) if description and description.strip() else build_description(skill_data)
     body = generate_skill(skill_data, skill_data["template"])
     content = generate_frontmatter(skill_data) + body
     output_path = Path(output_dir).expanduser()

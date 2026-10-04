@@ -81,7 +81,7 @@ def validate_skill(skill_path):
     if not body.strip():
         add("error", "empty-body", "SKILL.md has no instructions after frontmatter.")
     if PLACEHOLDER_PATTERN.search(body):
-        add("error", "unfilled-template", "SKILL.md still contains an unfilled template placeholder.")
+        add("info", "template-token-review", "Template-shaped tokens are present; review whether they are intended input placeholders or unfinished scaffold content.")
     scaffold_hits = [marker for marker in SCAFFOLD_MARKERS if marker in body]
     if scaffold_hits:
         add("warning", "scaffold-content", "Generated scaffold still contains generic guidance; replace it with the target domain method before calling the Skill complete.")

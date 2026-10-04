@@ -69,11 +69,14 @@ def generate_skill(skill_data, template_type="standard"):
         "{success_signals}": as_lines(skill_data.get("success_signals") or skill_data.get("quality_standards"), "- 输出满足契约并保留可核查依据"),
         "{composition_contract}": skill_data.get("composition_contract", "单一 Skill 直接完成工作；需要拆分时先定义 Router 和交接契约。"),
     }
-    for placeholder, value in values.items():
-        template = template.replace(placeholder, str(value).strip())
+    def replace_placeholder(match):
+        placeholder = match.group(0)
+        if placeholder not in values:
+            raise ValueError(f"Unknown template placeholder: {placeholder}")
+        return str(values[placeholder]).strip()
 
-    if re.search(r"\{[a-z_]+\}", template):
-        raise ValueError("Template contains an unresolved placeholder")
+    # Substitute once in the template so inserted user content stays literal.
+    template = re.sub(r"\{[a-z_]+\}", replace_placeholder, template)
     return template.strip() + "\n"
 
 

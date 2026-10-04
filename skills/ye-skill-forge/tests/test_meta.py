@@ -17,6 +17,7 @@ from core.intent import clarify
 from core.lifecycle import behavior_evidence, compile_targets, install_simulate, output_eval, package_skill, record_behavior_evidence, tree_sha256, trigger_eval, trust_audit
 from core.package import create_package_scaffold, route_eval, validate_package
 from core.review import review_skill
+from core.skill_utils import load_skill
 from scripts.create import create_package
 
 
@@ -93,6 +94,64 @@ class MetaTests(unittest.TestCase):
             self.assertEqual(manifest["capabilities"], [])
             self.assertEqual(manifest["license"], "")
 
+    def test_explicit_description_survives_generation_and_manifest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = brief()
+            data["description"] = '整理来源笔记：保留引用；\n不要编造 "未知" 字段。'
+            original = dict(data)
+            root = Path(temp) / "notes"
+            create_package(data, root)
+            expected = '整理来源笔记：保留引用； 不要编造 "未知" 字段。'
+            self.assertEqual(load_skill(root)[2]["description"], expected)
+            manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["description"], expected)
+            self.assertEqual(data, original)
+
+    def test_missing_or_blank_description_falls_back_to_target_job_and_boundary(self):
+        with tempfile.TemporaryDirectory() as temp:
+            for index, description in enumerate((None, "", " \n ")):
+                with self.subTest(description=description):
+                    data = brief()
+                    data["description"] = description
+                    root = Path(temp) / str(index)
+                    create_package(data, root)
+                    actual = load_skill(root)[2]["description"]
+                    self.assertEqual(actual, "把资料整理为保留引用的笔记。边界：不写无来源结论。不要用于：编写小说故事。")
+
+    def test_description_does_not_turn_execution_boundary_into_route_exclusion(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = brief()
+            data["description"] = None
+            root = Path(temp) / "notes"
+            create_package(data, root)
+            actual = load_skill(root)[2]["description"]
+            self.assertIn("边界：不写无来源结论", actual)
+            self.assertNotIn("不要用于：不写无来源结论", actual)
+            self.assertIn("编写小说故事", actual)
+            self.assertIn("不写无来源结论", (root / "SKILL.md").read_text(encoding="utf-8"))
+            manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["design"]["boundaries"], data["boundaries"])
+
+    def test_string_boundary_is_not_split_into_characters(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = brief()
+            data["boundaries"] = "不写无来源结论"
+            data["near_neighbors"] = "编写小说故事"
+            root = Path(temp) / "notes"
+            create_package(data, root)
+            actual = load_skill(root)[2]["description"]
+            self.assertIn("边界：不写无来源结论", actual)
+            self.assertIn("不要用于：编写小说故事", actual)
+
+    def test_nontext_description_is_rejected_before_writing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "notes"
+            data = brief()
+            data["description"] = ["整理来源笔记"]
+            with self.assertRaises(ValueError):
+                create_package(data, root)
+            self.assertFalse(root.exists())
+
     def test_cli_refuses_unready_generation_before_writing(self):
         with tempfile.TemporaryDirectory() as temp:
             target = Path(temp) / "notes"
@@ -101,6 +160,17 @@ class MetaTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 2)
             self.assertFalse(json.loads(completed.stdout)["ok"])
             self.assertFalse(target.exists())
+
+    def test_cli_evaluate_exit_status_matches_structural_validity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            valid = Path(temp) / "notes"
+            create_package(brief(), valid)
+            for target, expected_ok in ((Path(temp), False), (valid, True)):
+                with self.subTest(target=target):
+                    command = [sys.executable, str(ROOT / "scripts/ye.py"), "evaluate", str(target)]
+                    completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8")
+                    self.assertEqual(completed.returncode, 0 if expected_ok else 2)
+                    self.assertEqual(json.loads(completed.stdout)["ok"], expected_ok)
 
     def test_cli_default_generation_uses_project_ye_root(self):
         with tempfile.TemporaryDirectory() as temp:
