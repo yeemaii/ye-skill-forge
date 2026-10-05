@@ -53,7 +53,9 @@ def write_json(path, value):
     return path
 
 
-def write_report(root, name, value, title="Ye 报告"):
+def write_report(root, name, value, title="Ye 报告", *, persist=True):
+    if not persist:
+        return value
     root = Path(root).resolve()
     report_dir = (root / "reports").resolve()
     if root not in report_dir.parents:
@@ -72,6 +74,22 @@ def write_report(root, name, value, title="Ye 报告"):
                 continue
             if isinstance(item, (str, int, float, bool)) or item is None:
                 lines.append(f"- {key}: {item}")
+        if name == "review":
+            lines.extend(["", "## 检查结果", "", "| 检查 | 状态 |", "| --- | --- |"])
+            for gate in value.get("gates", []):
+                lines.append(f"| {gate['key']} | {gate['status']} |")
+            lines.extend(["", "checked 仅表示静态或契约检查完成，不表示行为通过。", "", "## 发现与缺口", ""])
+            for gate in value.get("gates", []):
+                if gate.get("reason"):
+                    lines.append(f"- {gate['key']}: {gate['reason']}")
+                findings = gate.get("findings", gate.get("details", {}).get("findings", []))
+                for finding in findings:
+                    if finding.get("severity") != "info":
+                        lines.append(f"- {gate['key']}: {finding.get('message', finding.get('code'))}")
+                for child in gate.get("children", []):
+                    lines.append(f"- {child['name']}: {child['decision']}，详情保存在综合 JSON 的 children 中")
+            for item in value.get("skipped", []):
+                lines.append(f"- 跳过 {item['key']}: {item['reason']}")
     lines.extend(["", "机器可读证据：" + json_path.name])
     (report_dir / f"{name}.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     return value
@@ -192,9 +210,9 @@ def build_skill_ir(root):
     }
 
 
-def skill_ir(root):
+def skill_ir(root, *, persist=True):
     result = build_skill_ir(root)
-    return write_report(root, "skill_ir", result, "Skill IR")
+    return write_report(root, "skill_ir", result, "Skill IR", persist=persist)
 
 
 def _env_template_has_secret(text):
@@ -217,7 +235,7 @@ def _env_template_has_secret(text):
     return False
 
 
-def trust_audit(root):
+def trust_audit(root, *, persist=True):
     root = Path(root).resolve()
     findings = []
     capabilities = set()
@@ -258,7 +276,7 @@ def trust_audit(root):
         "findings": findings,
         "evidence_status": "static",
         "limitations": ["秘密扫描基于静态模式，不能证明不存在敏感数据", "未证明目标客户端的原生权限执行", "未证明外部网络服务或真实客户端行为"],
-    }, "信任与权限审计")
+    }, "信任与权限审计", persist=persist)
 
 
 def _case_documents(path):
@@ -279,7 +297,7 @@ def _nonempty_case_value(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def trigger_eval(root):
+def trigger_eval(root, *, persist=True):
     root = Path(root).resolve()
     files = []
     findings = []
@@ -329,10 +347,10 @@ def trigger_eval(root):
             "reason": "只发现静态案例，尚未执行模型或客户端路由；不能计算准确率。",
         },
         "evidence_status": "static;未执行模型路由",
-    }, "触发评测")
+    }, "触发评测", persist=persist)
 
 
-def output_eval(root):
+def output_eval(root, *, persist=True):
     root = Path(root).resolve()
     files = [p for p in (root / "evals").rglob("*") if p.is_file() and p.suffix.lower() in {".json", ".jsonl"} and "output" in p.relative_to(root).as_posix().lower()] if (root / "evals").is_dir() else []
     cases = 0
@@ -354,7 +372,7 @@ def output_eval(root):
                 findings.append({"severity": "error", "code": "output-case", "path": rel, "message": "输出案例需要具体 input 和 expected、rubric 或行为/结构检查标准"})
             else:
                 cases += 1
-    return write_report(root, "output_eval", {"ok": not findings and cases > 0, "status": "invalid" if findings else "present" if cases else "missing", "cases": cases, "files": [p.relative_to(root).as_posix() for p in files], "findings": findings, "evidence_status": "static;未运行模型或人工盲审", "limitations": ["不能证明 with-skill 相对 baseline 的实际质量提升"]}, "输出评测")
+    return write_report(root, "output_eval", {"ok": not findings and cases > 0, "status": "invalid" if findings else "present" if cases else "missing", "cases": cases, "files": [p.relative_to(root).as_posix() for p in files], "findings": findings, "evidence_status": "static;未运行模型或人工盲审", "limitations": ["不能证明 with-skill 相对 baseline 的实际质量提升"]}, "输出评测", persist=persist)
 
 
 def validate_behavior_evidence(root, evidence):
@@ -513,7 +531,7 @@ def install_simulate(root, package_dir):
             routes = route_eval(temp_root)
             handoff = handoff_check(temp_root)
             return write_report(root, "install_simulation", {"ok": validation["ok"] and routes["ok"] and handoff["ok"], "archive": str(archive), "package": validation, "routing": routes, "handoff": handoff, "evidence_status": "executed-temporary-install"}, "安装模拟")
-        candidates = [temp_root] if (temp_root / "SKILL.md").is_file() else [p.parent for p in temp_root.rglob("SKILL.md")]
+        candidates = [p.parent for p in temp_root.rglob("SKILL.md")]
         if not candidates:
             return write_report(root, "install_simulation", {"ok": False, "error": "归档缺少 SKILL.md", "evidence_status": "executed"}, "安装模拟")
         if len(candidates) != 1:
@@ -549,13 +567,13 @@ def upgrade_check(root, previous):
     return write_report(root, "upgrade_check", result, "升级检查")
 
 
-def registry_audit(root):
+def registry_audit(root, *, persist=True):
     root = Path(root).resolve()
     manifest = package_manifest(root)
     required = ("name", "version", "owner", "license", "review_cadence")
     missing = [field for field in required if not manifest.get(field)]
     result = {"ok": not missing, "missing": missing, "name": manifest.get("name"), "version": manifest.get("version"), "owner": manifest.get("owner"), "license": manifest.get("license"), "review_cadence": manifest.get("review_cadence"), "source_sha256": tree_sha256(root), "evidence_status": "executed-source-audit"}
-    return write_report(root, "registry_audit", result, "注册审计")
+    return write_report(root, "registry_audit", result, "注册审计", persist=persist)
 
 
 def telemetry_event(root, event, outcome="unknown", failure_type="none", command="manual"):

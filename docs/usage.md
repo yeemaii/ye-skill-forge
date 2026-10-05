@@ -142,6 +142,8 @@ python scripts/ye.py --help
 python scripts/ye.py intent --idea "我想做一个能处理研究资料的 skill"
 python scripts/ye.py create "会议纪要整理" --slug note-cleanup --job "把会议记录整理为可核查的纪要" --output-dir ../../.ye/skills/note-cleanup
 python scripts/ye.py review <skill-dir>
+python scripts/ye.py review <skill-dir> --no-report
+python scripts/ye.py review <skill-dir> --profile production
 python scripts/ye.py skill-ir <skill-dir>
 python scripts/ye.py trust <skill-dir>
 python scripts/ye.py compile <skill-dir> --target codex --target claude-code --target generic
@@ -149,6 +151,10 @@ python scripts/ye.py package <skill-dir> --output-dir dist --zip
 python scripts/ye.py install-simulate <skill-dir> --package-dir dist
 python scripts/ye.py release-check <skill-dir> --package-dir dist
 ```
+
+`review` 默认按 maturity_tier 选择 local、production 或 distribution，综合结果只保存 review.json 和 review.md；`--no-report` 不写文件。静态 checked 表示检查完成，不表示行为质量通过。发布预检始终使用 distribution，严格发布仍阻断行为证据缺口。完整选择依据见 `methods/lifecycle.md`。
+
+案例入口使用 SKILL.example.md，以免安装时被当成正常 Skill。要验证案例，先执行 `python scripts/materialize_example.py note-cleanup --output-dir <new-directory>`，然后检查新目录。不要在 examples/ 源目录直接运行需要 SKILL.md 的命令。
 
 验证和测试命令：
 

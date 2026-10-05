@@ -150,6 +150,16 @@ def validate_package(package_path: str | Path) -> Dict[str, Any]:
                 findings.append({"severity": "error", "code": "shared-path", "message": str(exc)})
     if "shared" not in manifest:
         findings.append({"severity": "warning", "code": "shared-contract", "message": "未声明 shared 资源边界；共享知识应显式列出"})
+    # Check the same source boundary as packaging, excluding local builds/state.
+    from core.lifecycle import iter_source_files
+    allowed_entries = {root / "SKILL.md", router_root / "SKILL.md"}
+    allowed_entries.update(Path(child["absolute_path"]) / "SKILL.md" for child in children)
+    try:
+        for path, relative in iter_source_files(root):
+            if relative.name == "SKILL.md" and path not in allowed_entries:
+                findings.append({"severity": "error", "code": "undeclared-entry", "path": relative.as_posix(), "message": "活动 SKILL.md 必须声明为 Router 或子 Skill；教学案例使用 SKILL.example.md"})
+    except ValueError as exc:
+        findings.append({"severity": "error", "code": "package-source-boundary", "message": str(exc)})
     return {"ok": not any(i["severity"] == "error" for i in findings) and router_result["ok"] and all(i["ok"] for i in child_results), "package": str(root), "manifest": manifest, "router": str(router), "router_result": router_result, "children": child_results, "findings": findings, "evidence_status": "executed-structure"}
 
 

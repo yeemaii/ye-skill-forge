@@ -80,8 +80,7 @@ class SkillForgeTests(unittest.TestCase):
             router.mkdir(parents=True)
             child.mkdir(parents=True)
             router.joinpath("SKILL.md").write_text("---\nname: research-router\ndescription: Route research tasks.\n---\n# Router\n\n## Workflow\nRoute only.\n", encoding="utf-8")
-            create_sample(root / "seed")
-            source = root / "seed" / "note-cleanup"
+            source = create_sample(Path(temp) / "seed")
             for path in source.iterdir():
                 if path.is_file():
                     child.joinpath(path.name).write_bytes(path.read_bytes())

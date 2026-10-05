@@ -98,7 +98,8 @@ class LifecycleTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             result = json.loads(completed.stdout)
             self.assertTrue(result["ok"])
-            self.assertEqual(result["review"]["decision"], "pass")
+            self.assertEqual(result["review"]["profile"], "distribution")
+            self.assertEqual(result["review"]["decision"], "review")
             self.assertFalse(result["review"]["behavior_verified"])
 
 

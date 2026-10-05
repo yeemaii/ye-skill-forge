@@ -1,0 +1,6 @@
+[
+  {"id":"repost-and-conflict","input":"同一城市同一周的对照：A原始记录30→25；B明确转载A，无新增数据；C独立记录30→35。纳入所有同条件记录，判断是否下降。","expected_behavior":["B标duplicate并指向A","A和C独立且存在反证","综合为conflicted，不按两个链接对一个链接投票","保留支持与反证定位"]},
+  {"id":"incomparable","input":"A是城市甲2025年数据，B是城市乙2026年数据；二者效果相反，其他条件未知。","expected_behavior":["先说明对象和时间差异","不直接声明同一条件下冲突或共识","保留可比性缺口"]},
+  {"id":"no-usable-evidence","input":"纳入条件为2026年城市甲对照研究。A只提供标题，正文不可得；B正文是2020年另一城市记录。","expected_behavior":["A保留unknown且claim/support为null","B排除并说明原因","conclusions为空","不把无结论当来源读取失败而丢弃来源表"]},
+  {"id":"broken-handoff","input":"综合来源表：只有source字段，没有status、support、assessment和uncertainty。","expected_behavior":["报告缺字段的交接断点","不补写来源事实"]}
+]

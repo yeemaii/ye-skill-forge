@@ -260,7 +260,7 @@ def command_atlas(args):
 
 def command_review(args, quiet=False):
     try:
-        result = review_skill(args.skill_dir)
+        result = review_skill(args.skill_dir, profile=getattr(args, "profile", "auto"), persist=not getattr(args, "no_report", False))
     except (OSError, ValueError) as exc:
         result = {"ok": False, "error": str(exc)}
     if quiet:
@@ -269,7 +269,7 @@ def command_review(args, quiet=False):
 
 
 def command_release(args):
-    review_code = command_review(argparse.Namespace(skill_dir=args.skill_dir), quiet=True)
+    review_code = command_review(argparse.Namespace(skill_dir=args.skill_dir, profile="distribution"), quiet=True)
     review = read_json(Path(args.skill_dir) / "reports" / "review.json", {}) or {}
     manifest = package_manifest(args.skill_dir)
     strict = args.strict or manifest.get("maturity_tier") in {"library", "governed"}
@@ -319,6 +319,8 @@ def build_parser():
     skill_parser("registry-audit", "审计版本和分发元数据")
     sub.choices["registry-audit"].set_defaults(func=command_registry)
     skill_parser("review", "运行核心门禁并汇总证据")
+    sub.choices["review"].add_argument("--profile", choices=("auto", "local", "production", "distribution"), default="auto", help="默认按成熟度选择；发布预检固定使用 distribution")
+    sub.choices["review"].add_argument("--no-report", action="store_true", help="只输出结果，不写报告或其他文件")
     sub.choices["review"].set_defaults(func=command_review)
 
     intent = sub.add_parser("intent", help="从模糊想法生成用户结果、设计字段和高信息量提问")

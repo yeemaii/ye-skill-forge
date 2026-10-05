@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 import yaml
@@ -21,6 +22,7 @@ from core.package import create_package_scaffold, validate_package
 from core.review import review_skill
 from core.skill_utils import validate_skill
 from scripts.create import create_package
+from scripts.materialize_example import materialize_example
 
 
 def make_skill(root):
@@ -168,9 +170,11 @@ class PortabilityBehaviorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             source_license_existed = (ROOT / "LICENSE").exists()
             source_license = (ROOT.parents[1] / "LICENSE").read_bytes()
-            compile_targets(ROOT, Path(temp) / "engine", ["generic"])
+            # Canonical license injection requires ROOT; suppress source reports.
+            with patch("core.lifecycle.write_report", side_effect=lambda _root, _name, value, *args, **kwargs: value):
+                compile_targets(ROOT, Path(temp) / "engine", ["generic"])
+                archive = package_skill(ROOT, Path(temp) / "engine-archives")
             self.assertEqual((Path(temp) / "engine/generic/LICENSE").read_bytes(), source_license)
-            archive = package_skill(ROOT, Path(temp) / "engine-archives")
             with zipfile.ZipFile(archive["archive"]) as handle:
                 self.assertEqual(handle.read("LICENSE"), source_license)
             self.assertEqual((ROOT / "LICENSE").exists(), source_license_existed)
@@ -271,9 +275,9 @@ class PortabilityBehaviorTests(unittest.TestCase):
 
     def test_repository_examples_compile_package_and_install(self):
         with tempfile.TemporaryDirectory() as temp:
-            for example in ("note-cleanup", "research-package"):
+            for example in ("note-cleanup", "research-package", "incident-diagnosis"):
                 root = Path(temp) / example
-                shutil.copytree(ROOT / "examples" / example, root)
+                materialize_example(example, root)
                 output = Path(temp) / (example + "-targets")
                 compile_targets(root, output, ["codex", "claude-code", "generic"])
                 for platform in ("codex", "claude-code", "generic"):

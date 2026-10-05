@@ -36,9 +36,9 @@ Ye 是中文优先、可独立运行的 agent skill 元设计与工程系统，�
 
 完整的用户流程见 [`docs/usage.md`](docs/usage.md)。
 
-多 Skill 包示例见 [`skills/ye-skill-forge/examples/research-package/`](skills/ye-skill-forge/examples/research-package/)。
+案例索引见 [`skills/ye-skill-forge/examples/README.md`](skills/ye-skill-forge/examples/README.md)，包含简单整理、复杂诊断、研究组合和改进对照。案例使用 `SKILL.example.md`，安装 Ye 时不会成为正式 Skill；验证时先复制恢复入口。
 
-2.0 至 2.3 的改造说明、验证范围与剩余缺口见 [`docs/upgrade-2.0.md`](docs/upgrade-2.0.md)。
+2.0 至 2.4 的改造说明、验证范围与剩余缺口见 [`docs/upgrade-2.0.md`](docs/upgrade-2.0.md)。
 
 ## 开发者验证
 
@@ -50,7 +50,7 @@ Ye 是中文优先、可独立运行的 agent skill 元设计与工程系统，�
 python -m unittest discover -s tests -v
 python scripts/validate.py .
 python scripts/evaluate.py .
-python scripts/ye.py review .
+python scripts/ye.py review . --no-report
 ```
 
 这些命令用于开发和发布验证，不是最终用户使用 Ye 的主要入口。完整方法见 `skills/ye-skill-forge/methods/`；示例见 `skills/ye-skill-forge/examples/`。生成报告应落在目标 skill 的 `reports/` 下，原始遥测和本地状态不应进入发布包。真实行为验证可用 `python scripts/ye.py behavior-evidence <skill-dir> --evidence-file evidence.json` 绑定当前源版本。

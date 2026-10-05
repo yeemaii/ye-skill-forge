@@ -15,6 +15,18 @@
 
 成熟度表示验证与治理深度，不表示任务可以省略。没有历史数据时记录验证缺口，不自动把完整创建请求降为骨架。
 
+## 审查深度与报告
+
+`review --profile auto` 按目标 maturity_tier 选择：scaffold/未声明使用 local，production 使用 production，library/governed 使用 distribution。显式选择 profile 只改变这次检查，不修改成熟度。
+
+- local：结构、静态信任扫描、已有触发/输出案例和已有行为证据；没有案例时记录跳过，不强制建立完整基准。
+- production：额外要求触发/输出计划与当前源绑定的行为证据；缺口标 warn，已知失败或无效证据标 block。
+- distribution：增加 IR 与分发元数据。release-check 固定采用该深度；strict 及 library/governed 的警告仍阻断发布预检。
+
+综合审查只写 reports/review.json 与 review.md，完整子检查与子 Skill 发现嵌入 JSON。`--no-report` 只输出，不写任何报告。独立调用 trust、skill-ir 等命令时仍生成对应报告；不默认重复调用以复制相同证据。
+
+checked 表示案例结构、契约或静态扫描已完成；不是实际行为通过。decision: pass 仅表示所选检查无阻断或警告，不能替代领域语义审查或证明生成效果。读取既有失败和过期证据不受 profile 降低影响。
+
 ## 改进闭环
 
 1. 读取目标和失败案例。

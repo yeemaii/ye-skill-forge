@@ -1,0 +1,39 @@
+{
+  "schema_version": "1",
+  "purpose": "Compare meta-skill generation and the generated skill's use; this file is a plan, not execution evidence.",
+  "conditions": ["ordinary-authoring", "current-ye", "candidate-ye"],
+  "execution": {
+    "author_receives": ["generation_input", "same allowed tools and materials"],
+    "user_receives": ["generated entrypoint and declared resources", "use_input"],
+    "judge_receives": ["raw outputs and artifacts", "rubric", "limits and costs"],
+    "isolation": "Prefer new sessions; label same-context-agent when unavailable. Keep use_input and rubric out of author prompts.",
+    "record": ["source versions", "client/model", "generated artifact", "raw use output", "pass/fail/not-run with reason", "clarification turns", "elapsed time", "observed token usage when available"],
+    "comparison": "Use the same tasks, environment, author inputs and rubrics. Repeat variable tasks when the decision warrants it. Report per-task tradeoffs, not a universal score."
+  },
+  "cases": [
+    {
+      "id": "notes-procedural",
+      "generation_input": "创建一个会议纪要 Skill。输入是原始记录，提取决定、行动项和未决问题，并保留依据。记录可能有明确更正、缺负责人、缺会议日期和试探性建议。只创建一个入口，不执行外部动作。",
+      "use_input": "会议日期未给出。L1：陈说我周四交验收。L2：陈更正为下周二，主持确认。L3：主持决定先内部试用，验收完成后再讨论发布。L4：也许周五上线，只是提议。L5：需收集反馈，未指定负责人和日期。",
+      "rubric": ["最终行动日期为下周二，不能按运行当天换算", "决定保留验收和后续讨论条件", "周五上线仍是提议", "反馈责任与日期不猜", "关键事项可回到原文"]
+    },
+    {
+      "id": "research-composition",
+      "generation_input": "创建可独立使用的来源筛选与证据综合 Skill，也支持顺序组合。用户提供研究问题、纳入条件与正文；保留原始出处、主张依据、排除与未知。比较来源时需要处理独立性和冲突，不能按链接数量判断可靠性。",
+      "use_input": "纳入同厂区同班次方案乙对照数据。A原始数据：对照10，乙8；B转载A无新增数据；C独立记录：对照10，乙12；D是另一个厂区的上月数据；E只有标题。先筛选，再判断乙是否有效。",
+      "rubric": ["职责可独立触发且复合请求有顺序交接", "B不增加独立证据", "D排除但保留理由，E保留未知", "综合保留A与C反证及可比性限制", "不编造标题中的研究结果"]
+    },
+    {
+      "id": "diagnosis-complex-single",
+      "generation_input": "创建完整的生产故障诊断 Skill：日志可能缺失，系统有跨服务依赖；需要比较假设、提出可验证的检查，并在获准修复后验证原症状。流程相依，不要求独立子入口。",
+      "use_input": "更新支付服务后下单失败；服务健康检查正常，队列积压，消费者日志不可得。仅授权只读诊断。另有人说回滚命令退出0就算恢复。请诊断并提出下一步。",
+      "rubric": ["不因阶段数量拆分多Skill", "区分变更相关性与根因", "读取可用依赖信号并保留日志缺口", "检查能区分候选原因", "未授权不执行回滚", "验证覆盖下单症状及队列消费者"]
+    },
+    {
+      "id": "story-open-judgment",
+      "generation_input": "创建通用故事编辑 Skill，适用于不同体裁和篇幅。保留作者主题、人物动机和连续性；可以改善表达，但不能强加固定章节、语气或示例故事结构。",
+      "use_input": "编辑这段克制的微型故事，保留隐含的和解，不扩写背景：‘父亲把修好的收音机放在门边。她离开前说过不会再听。第二天清晨，门边空了，厨房里响起天气预报。’只交付改写正文和必要说明。",
+      "rubric": ["主题和收音机的连续性保留", "和解仍然隐含，不强行说教", "保持微型篇幅与克制语气", "不套用固定章节或新增无依据人物背景", "评价实际表达与作者意图，不以标题或字段数量计分"]
+    }
+  ]
+}
