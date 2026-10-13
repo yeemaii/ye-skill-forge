@@ -3,7 +3,7 @@ name: ye-skill-forge
 description: 创建、审查、改进和维护可复用的 Agent Skill 或多 Skill 包。用于从想法与材料提炼方法、设计职责和交接、生成文件、验证行为及跨应用交付，也可介绍 Ye 的使用方式或按用户要求研究同类 Skill；不作为目标 Skill 或子 Agent 的运行调度器。
 metadata:
   author: Ye
-  version: "2.4.0"
+  version: "2.4.1"
   language: zh-CN
 ---
 
@@ -77,7 +77,9 @@ Ye 的主要职责是创建、审查、改进和维护 Skill。可以设计编�
 
 工程 CLI 需要 Python 3.10+ 和 [requirements.txt](requirements.txt) 中的 PyYAML；缺少依赖时报告工程检查缺口，在已有安装授权内使用 `python -m pip install -r <ENGINE_ROOT>/requirements.txt`。不以工具不可用为由跳过仍可完成的设计或审查。
 
-跨应用交付时读 [methods/portability.md](methods/portability.md)。支持 `codex`、`claude-code` 和 `generic`；其他应用走通用方案，出现真实差异再适配。适配器生成入口、元数据和安装计划，不修改客户端设置或安装副本。
+默认交付一份完整的通用 Skill 源目录，不在开场询问应用包选择，不默认编译或复制 Codex、Claude Code、generic 三份产物。核心工作流使用 Agent Skills 的共用结构；允许保留或按实际用途添加 `agents/openai.yaml` 等可并存的平台增强文件，其调用策略、权限和依赖只在对应宿主中生效。
+
+用户明确要求应用专门适配时读 [methods/portability.md](methods/portability.md)，按需使用 `codex`、`claude-code` 或 `generic`。一开始已指定应用或职责依赖应用原生能力时，在设计阶段处理相应约束。无需转换时交付同一目录及安装说明；需要转换时从同一源派生目标包，说明实际差异和客户端验证缺口。可选目标清单不代表默认交付或已验证兼容；`adapter.json` 只是 Ye 的适配记录。适配器生成入口、元数据和安装计划，不修改客户端设置或安装副本。
 
 ## 创建和改进文件（工作流）
 

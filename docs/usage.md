@@ -19,7 +19,7 @@ Ye 用来把工作流、SOP、提示词、脚本或已有 skill 整理成可复�
 
 将仓库中的 `skills/ye-skill-forge/` 目录作为一个完整 skill 包安装到你的 agent skill 目录。包的运行时入口是 `SKILL.md`；不要只复制其中的一个文件。
 
-Ye 的核心方法不依赖特定 Agent 工具。Codex、Claude Code 和其他兼容应用都使用完整目录；需要交付适配时使用三种目标，见 `methods/portability.md`。适配器提供根入口、必要元数据和安装计划，不安装、不启动子 Agent。只有读取能力时可做设计和审查；编辑与脚本能力分别决定能否修改文件、运行工程检查。缺少能力时报告相应验证缺口。
+Ye 的核心方法不依赖特定 Agent 工具。默认只交付一份完整通用目录，不在开场要求选择应用包。目录可以包含 agents/openai.yaml 等平台增强文件，其原生策略只在对应宿主中生效。用户要求专门适配时先检查实际差异；需要转换才使用所选目标，无需转换则提供同一目录和安装说明，见 `methods/portability.md`。适配器提供根入口、必要元数据和安装计划，不安装、不启动子 Agent。只有读取能力时可做设计和审查；编辑与脚本能力分别决定能否修改文件、运行工程检查。缺少能力时报告相应验证缺口。
 
 安装完成后，在 agent 对话中直接说明目标、输入材料和交付要求。例如：
 
@@ -146,11 +146,13 @@ python scripts/ye.py review <skill-dir> --no-report
 python scripts/ye.py review <skill-dir> --profile production
 python scripts/ye.py skill-ir <skill-dir>
 python scripts/ye.py trust <skill-dir>
-python scripts/ye.py compile <skill-dir> --target codex --target claude-code --target generic
+python scripts/ye.py compile <skill-dir> --target claude-code
 python scripts/ye.py package <skill-dir> --output-dir dist --zip
 python scripts/ye.py install-simulate <skill-dir> --package-dir dist
 python scripts/ye.py release-check <skill-dir> --package-dir dist
 ```
+
+上面的 compile 仅演示用户要求 Claude Code 适配且需要转换时的可选命令，不是创建或打包的必经步骤。默认直接使用源目录；需要 zip 时用 package 归档。只有明确要求多目标分发时才重复 --target。
 
 `review` 默认按 maturity_tier 选择 local、production 或 distribution，综合结果只保存 review.json 和 review.md；`--no-report` 不写文件。静态 checked 表示检查完成，不表示行为质量通过。发布预检始终使用 distribution，严格发布仍阻断行为证据缺口。完整选择依据见 `methods/lifecycle.md`。
 

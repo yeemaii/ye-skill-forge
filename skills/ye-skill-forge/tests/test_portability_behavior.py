@@ -25,7 +25,7 @@ from scripts.create import create_package
 from scripts.materialize_example import materialize_example
 
 
-def make_skill(root):
+def make_skill(root, **options):
     create_package({
         "name": "source-notes", "job": "Preserve source quotations in notes",
         "description": "Organize research notes while preserving original quotations and citations.",
@@ -33,6 +33,7 @@ def make_skill(root):
         "input_description": "Source text", "output_format": "Cited notes",
         "exclusions": ["No unsupported claims"], "quality_standards": "Citations match the source",
         "author": "Tester", "license": "MIT",
+        **options,
     }, root)
 
 
@@ -54,6 +55,36 @@ def save(path, value):
 
 
 class PortabilityBehaviorTests(unittest.TestCase):
+    def test_creation_defaults_to_one_portable_source_without_target_builds(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "source"
+            make_skill(root)
+            manifest = package_manifest(root)
+            self.assertEqual(manifest["target_platforms"], ["generic"])
+            config = yaml.safe_load((root / "agents/interface.yaml").read_text(encoding="utf-8"))
+            self.assertEqual(config["compatibility"]["adapter_targets"], ["codex", "claude-code", "generic"])
+            self.assertEqual(config["compatibility"]["delivery"]["target_adaptation"], "on-request")
+            self.assertFalse((root / "dist").exists())
+            self.assertEqual(list(root.rglob("SKILL.md")), [root / "SKILL.md"])
+            self.assertEqual(list(root.rglob("adapter.json")), [])
+            self.assertFalse((root / "agents/openai.yaml").exists())
+
+    def test_explicit_design_targets_are_preserved_without_extra_platforms(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "source"
+            make_skill(root, target_platforms=["claude", "generic", "claude-code"])
+            self.assertEqual(package_manifest(root)["target_platforms"], ["claude-code", "generic"])
+            self.assertFalse((root / "dist").exists())
+
+    def test_invalid_design_targets_fail_before_creating_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "source"
+            for targets in ([], "codex", ["unknown-client"], [None]):
+                with self.subTest(targets=targets):
+                    with self.assertRaises(ValueError):
+                        make_skill(root, target_platforms=targets)
+                    self.assertFalse(root.exists())
+
     def test_npm_package_json_does_not_turn_single_skill_into_package(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "source"
@@ -204,7 +235,10 @@ class PortabilityBehaviorTests(unittest.TestCase):
             make_skill(root)
             (root / "references").mkdir()
             (root / "references/source.md").write_text("Quoted source", encoding="utf-8")
-            config = {"interface": {"display_name": "Existing"}, "policy": {"allow_implicit_invocation": False}, "dependencies": {"tools": []}}
+            (root / "assets").mkdir()
+            icon = b"<svg/>"
+            (root / "assets/icon.svg").write_bytes(icon)
+            config = {"interface": {"display_name": "Existing", "icon_small": "./assets/icon.svg"}, "policy": {"allow_implicit_invocation": False}, "dependencies": {"tools": []}}
             native = root / "agents/openai.yaml"
             native.write_text(yaml.safe_dump(config), encoding="utf-8")
             original = native.read_bytes()
@@ -218,6 +252,15 @@ class PortabilityBehaviorTests(unittest.TestCase):
                 self.assertFalse(adapter["runtime_behavior_verified"])
                 self.assertFalse(adapter["execution"]["scheduler_included"])
                 self.assertEqual(adapter["execution"]["shell"], "environment")
+                self.assertEqual((target / "assets/icon.svg").read_bytes(), icon)
+            archive = package_skill(root, Path(temp) / "archive")
+            with zipfile.ZipFile(archive["archive"]) as handle:
+                self.assertEqual(handle.read("agents/openai.yaml"), original)
+                self.assertEqual(handle.read("assets/icon.svg"), icon)
+                self.assertEqual(handle.read("SKILL.md"), original_source)
+                self.assertNotIn("adapter.json", handle.namelist())
+                self.assertFalse(any(name.startswith(("codex/", "claude-code/", "generic/", "dist/")) for name in handle.namelist()))
+            self.assertTrue(install_simulate(root, archive["archive"])["ok"])
 
     def test_codex_generates_ui_metadata_without_opt_out(self):
         with tempfile.TemporaryDirectory() as temp:

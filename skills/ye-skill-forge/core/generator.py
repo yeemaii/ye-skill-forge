@@ -9,6 +9,7 @@ from pathlib import Path
 
 import yaml
 
+from core.adapters import TARGET_ALIASES, TARGETS
 from core.skill_utils import NAME_PATTERN
 
 
@@ -102,6 +103,14 @@ def generate_frontmatter(skill_data):
 def generate_manifest(skill_data):
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     intent_model = skill_data.get("_intent_model") if isinstance(skill_data.get("_intent_model"), dict) else {}
+    targets = skill_data.get("target_platforms")
+    if targets is None:
+        targets = ["generic"]
+    if not isinstance(targets, list) or not targets or any(
+        not isinstance(target, str) or target not in TARGETS for target in targets
+    ):
+        raise ValueError("target_platforms 必须是非空的已支持目标列表")
+    targets = list(dict.fromkeys(TARGET_ALIASES.get(target, target) for target in targets))
 
     def design_list(value):
         if isinstance(value, (list, tuple)):
@@ -127,7 +136,7 @@ def generate_manifest(skill_data):
         "created_by": "ye-skill-forge",
         "template": skill_data.get("template", "standard"),
         "target_format": "agent-skills-compatible",
-        "target_platforms": ["codex", "claude-code", "generic"],
+        "target_platforms": targets,
         "capabilities": skill_data.get("capabilities", []),
         "design": {
             "root_problem": skill_data.get("root_problem") or skill_data.get("job", ""),
@@ -165,6 +174,7 @@ def generate_interface(skill_data):
         "compatibility": {
             "canonical_format": "agent-skills",
             "adapter_targets": ["codex", "claude-code", "generic"],
+            "delivery": {"default_artifact": "portable-source", "target_adaptation": "on-request"},
             "activation": {"mode": "manual", "paths": []},
             "execution": {"context": "inline", "shell": skill_data.get("shell", "environment")},
             "trust": {
@@ -175,7 +185,7 @@ def generate_interface(skill_data):
             "degradation": {
                 "codex": "完整 Skill 目录和可选 openai.yaml；安装与行为需客户端复测",
                 "claude-code": "完整 Skill 目录；由宿主 Agent 顺序读取资源，原生调用需复测",
-                "generic": "完整中立源格式；按实际文件读写与脚本能力降级，不依赖子 Agent",
+                "generic": "完整通用目录，可含平台增强文件；原生策略按宿主验证，不依赖子 Agent",
             },
         },
         "interface": {

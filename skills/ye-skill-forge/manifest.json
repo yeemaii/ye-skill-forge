@@ -1,10 +1,10 @@
 {
   "name": "ye-skill-forge",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "从用户结果、真实材料到可复用 Agent Skill 或多 Skill 包的设计、验证、交付和证据驱动进化系统。",
   "author": "Ye",
   "owner": "Ye",
-  "updated_at": "2026-10-05",
+  "updated_at": "2026-10-14",
   "review_due": "2027-01-03",
   "status": "active",
   "maturity_tier": "library",
@@ -26,6 +26,6 @@
   "platforms": {
     "codex": "完整源目录，可生成最小 agents/openai.yaml；需在 Codex 客户端复测",
     "claude-code": "完整源目录和根入口；需在 Claude Code 客户端复测",
-    "generic": "中立源格式和安装计划；按宿主能力降级并独立复测"
+    "generic": "默认完整通用目录，可含平台增强文件；专门适配按需进行，客户端行为独立复测"
   }
 }
