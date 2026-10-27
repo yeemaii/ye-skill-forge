@@ -111,7 +111,7 @@ def adapt_target(root, target):
             if not re.search(r"\$" + re.escape(name) + r"(?![a-z0-9-])", str(interface.get("default_prompt", ""))):
                 interface["default_prompt"] = f"Use ${name} to complete the requested task."
         short = str(interface.get("short_description") or metadata["description"])
-        if len(short) < 25:
+        if len(short.encode("utf-8")) < 25:
             short = f"Reusable Skill for {name}: {short}"
         native_interface = {
             "display_name": str(interface.get("display_name") or name),

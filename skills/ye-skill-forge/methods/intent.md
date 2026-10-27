@@ -53,6 +53,6 @@
 }
 ```
 
-将作者确认的领域决策保存为 `brief.json`，用 `intent --brief-file brief.json` 检查，再用 `create --brief-file brief.json --require-ready` 生成骨架。模型继续把骨架的泛化步骤改成具体领域决策，并补实际输入/输出案例；CLI 本身不完成领域设计。用户结果、职责、输出、边界或成功条件未明确时 `--require-ready` 在写文件前返回失败；不带该选项只允许得到标为 draft 的骨架。
+将作者确认的领域决策保存为 `brief.json`，用 `intent --brief-file brief.json` 检查，再用 `create --brief-file brief.json --require-ready` 生成骨架。模型继续把骨架的泛化步骤改成具体领域决策，并补实际输入/输出案例；CLI 本身不完成领域设计。未单独提供 `user_result` 但已明确 `outputs` 时，工具会以 `outputs` 暂代并记入 `assumptions`；职责、结果/输出、边界或成功条件未明确时 `--require-ready` 在写文件前返回失败；不带该选项只允许得到标为 draft 的骨架。
 
 阶段列表 `components` 默认表示一个工作流；只有声明 `composition.children`、`router` 或 `independent_triggers`，才升级为 Skill 家族。单个步骤没有理由使用多 Skill 包。

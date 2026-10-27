@@ -10,7 +10,7 @@ from core.skill_utils import validate_skill
 PROFILES = {"scaffold": "local", "production": "production", "library": "distribution", "governed": "distribution"}
 
 
-def review_skill(root, *, profile="auto", persist=True):
+def review_skill(root, *, profile="auto", persist=True, child_component=False):
     root = Path(root).resolve()
     manifest = package_manifest(root)
     if profile == "auto":
@@ -26,8 +26,9 @@ def review_skill(root, *, profile="auto", persist=True):
 
     def case_gate(key, result):
         status = "block" if result.get("status") == "invalid" else "checked" if result["ok"] else "warn"
-        if profile == "local" and result.get("status") == "missing" and not result.get("files"):
-            skipped.append({"key": key, "reason": "No cases supplied; local review does not require a benchmark suite"})
+        if (profile == "local" or child_component) and result.get("status") == "missing" and not result.get("files"):
+            reason = "Governed at package root" if child_component else "No cases supplied; local review does not require a benchmark suite"
+            skipped.append({"key": key, "reason": reason})
         else:
             gate(key, status, "supplied-case-structure;not-behavior", details=result)
 
@@ -44,19 +45,22 @@ def review_skill(root, *, profile="auto", persist=True):
                 case_gate("trigger", triggers)
             for key, check in (("routing", route_eval), ("handoff", handoff_check)):
                 result = check(root)
-                status = "block" if not result["ok"] else "warn" if result.get("status") == "review" else "checked"
+                if key == "routing" and profile == "local" and result.get("status") == "missing" and not any(item.get("severity") == "error" for item in result.get("findings", [])):
+                    status = "warn"
+                else:
+                    status = "block" if not result["ok"] else "warn" if result.get("status") == "review" else "checked"
                 gate(key, status, "package-contract", details=result)
             children = []
             targets = [{"name": "router", "path": structure["router"]}] + structure["children"]
             for child in targets:
-                result = review_skill(root / child["path"], profile=profile, persist=False)
+                result = review_skill(root / child["path"], profile=profile, persist=False, child_component=True)
                 children.append({"name": child["name"], "path": child["path"], **result})
             gate("children", "block" if any(c["blockers"] for c in children) else "warn" if any(c["warnings"] for c in children) else "checked", "embedded-child-reviews", children=children)
     else:
         findings = validate_skill(root)
         structural_errors = any(item["severity"] == "error" for item in findings)
         meaningful_warnings = any(
-            item["severity"] == "warning" and (profile != "local" or item.get("code") != "scaffold-content")
+            item["severity"] == "warning" and (profile != "local" or item.get("code") not in {"scaffold-content", "design-missing", "intent-unconfirmed"})
             for item in findings
         )
         gate("structure", "block" if structural_errors else "warn" if meaningful_warnings else "checked", "validate", findings=findings)
@@ -66,12 +70,14 @@ def review_skill(root, *, profile="auto", persist=True):
     structure_ok = not any(item["key"] == "structure" and item["status"] == "block" for item in gates)
     if structure_ok:
         case_gate("output", output_eval(root, persist=False))
-    if profile == "distribution" and structure_ok:
+    if profile == "distribution" and structure_ok and not child_component:
         ir = skill_ir(root, persist=False)
         complete = ir.get("contract", {}).get("has_router" if is_package else "has_workflow")
         gate("ir", "checked" if complete else "warn", "source-model", details=ir)
         registry = registry_audit(root, persist=False)
         gate("registry", "checked" if registry["ok"] else "warn", "distribution-metadata", details=registry)
+    elif child_component:
+        skipped.extend({"key": key, "reason": "Governed at package root"} for key in ("ir", "registry"))
     elif profile != "distribution":
         skipped.extend({"key": key, "reason": "Only required for distribution review"} for key in ("ir", "registry"))
 
@@ -85,6 +91,8 @@ def review_skill(root, *, profile="auto", persist=True):
             gate("behavior-coverage", "warn", "complete-planned-suite", reason="Legacy evidence does not establish the planned denominator")
     elif behavior.get("status") == "invalid":
         gate("behavior", "block", "reports/behavior_evidence.json", details=behavior)
+    elif child_component:
+        skipped.append({"key": "behavior", "reason": "Governed at package root"})
     elif profile != "local":
         gate("behavior", "warn", "model/client-task-run", reason="No behavior evidence bound to the current source")
     else:

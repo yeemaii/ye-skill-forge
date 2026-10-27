@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 
 from core.behavior import compare_evidence, summarize_evidence
 from core.generator import generate_interface
-from core.lifecycle import build_skill_ir, compile_targets, install_simulate, package_manifest, package_skill, record_behavior_evidence, tree_sha256, upgrade_check
+from core.lifecycle import atlas, build_skill_ir, compile_targets, install_simulate, package_manifest, package_skill, record_behavior_evidence, tree_sha256, upgrade_check
 from core.package import create_package_scaffold, validate_package
 from core.review import review_skill
 from core.skill_utils import validate_skill
@@ -409,6 +409,22 @@ class PortabilityBehaviorTests(unittest.TestCase):
         record = evidence("a" * 64)
         record["cases"][0]["status"] = {}
         self.assertFalse(summarize_evidence(record)["ok"])
+
+    def test_atlas_detects_chinese_overlap_and_codex_preserves_chinese_short_description(self):
+        with tempfile.TemporaryDirectory() as temp:
+            ws = Path(temp)
+            s1 = ws / "skill-a"
+            s2 = ws / "skill-b"
+            make_skill(s1, name="meeting-a", job="把会议记录整理为结构化纪要", description="将会议记录整理为结构化纪要并提取行动项。")
+            make_skill(s2, name="meeting-b", job="整理会议记录并提取行动项", description="整理会议记录并提取行动项与未决问题。")
+            compile_targets(s1, s1 / "dist/targets", ["codex"])
+            native = yaml.safe_load((s1 / "dist/targets/codex/agents/openai.yaml").read_text(encoding="utf-8"))
+            self.assertEqual(native["interface"]["short_description"], "把会议记录整理为结构化纪要")
+            self.assertNotIn("Reusable Skill for", native["interface"]["short_description"])
+            result = atlas(ws, persist=False)
+            self.assertEqual(len(result["skills"]), 2)
+            self.assertEqual(len(result["collisions"]), 1)
+            self.assertFalse((ws / "reports").exists())
 
 
 if __name__ == "__main__":

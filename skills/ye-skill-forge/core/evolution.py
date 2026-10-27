@@ -7,6 +7,7 @@ import base64
 import hashlib
 import os
 from pathlib import Path
+import re
 import tempfile
 from typing import Any, Dict
 from uuid import uuid4
@@ -14,7 +15,7 @@ from uuid import uuid4
 from core.lifecycle import GENERATED_DIRS, iter_source_files, package_manifest, read_json, tree_sha256, trust_audit, write_json
 from core.package import local_path, route_eval, validate_package
 from core.skill_utils import is_within, load_skill, validate_skill
-from core.behavior import BEHAVIOR_JUDGES
+from core.behavior import BEHAVIOR_JUDGES, case_status
 
 
 def _now() -> str:
@@ -26,18 +27,25 @@ def nearest_assets(skill_path: str | Path, feedback: Dict[str, Any]) -> list:
     root = Path(skill_path).expanduser().resolve()
     terms = set()
     for item in feedback.get("issues", []) if isinstance(feedback, dict) else []:
-        terms.update(str(item.get("type", "")).replace("_", " ").split())
-        terms.update(str(item.get("description", "")).lower().split()[:4])
+        issue_type = str(item.get("type", "")).lower()
+        terms.update(issue_type.replace("_", " ").split())
+        desc = str(item.get("description", "")).lower()
+        terms.update(re.findall(r"[a-z0-9]{2,}", desc)[:6])
+        for chunk in re.findall(r"[\u4e00-\u9fff]{2,}", desc):
+            if len(chunk) <= 6:
+                terms.add(chunk)
+            for idx in range(min(4, len(chunk) - 1)):
+                terms.add(chunk[idx:idx + 2])
     candidates = []
-    for directory in ("references", "evals", "scripts", "methods", "templates"):
+    for directory in ("references", "evals", "scripts", "methods", "templates", "skills", "router", "shared"):
         path = root / directory
         if not path.is_dir():
             continue
         for item in path.rglob("*"):
             if not item.is_file():
                 continue
-            name = item.name.lower()
-            score = sum(1 for term in terms if term and term in name)
+            rel_lower = item.relative_to(root).as_posix().lower()
+            score = sum(1 for term in terms if term and term in rel_lower)
             if score:
                 candidates.append({"path": item.relative_to(root).as_posix(), "score": score})
     return sorted(candidates, key=lambda item: (-item["score"], item["path"]))[:5]
@@ -188,7 +196,7 @@ def apply_evolution(skill_path, packet_path, change_file, evidence_file=None, ap
     evidence = _json_object(evidence_file) if evidence_file else {}
     cases = evidence.get("cases", [])
     valid_cases = isinstance(cases, list) and all(
-        isinstance(case, dict) and case.get("passed") is True and all(isinstance(case.get(key), str) and case[key].strip() for key in ("input", "expected", "observed"))
+        isinstance(case, dict) and case_status(case) == "passed" and all(isinstance(case.get(key), str) and case[key].strip() for key in ("input", "expected", "observed"))
         for case in cases
     )
     required = {"observed-failure", "near-neighbor"}

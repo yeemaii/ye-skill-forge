@@ -3,6 +3,9 @@
   "package_type": "skill-family",
   "name": "research-workbench",
   "version": "1.0.0",
+  "owner": "Ye Skill Forge 示例",
+  "license": "MIT",
+  "review_cadence": "as-needed",
   "router": "router",
   "children": [
     {"name": "source-triage", "path": "skills/source-triage"},

@@ -199,12 +199,20 @@ def create_package(skill_data, output_dir):
     if output_path.exists():
         raise FileExistsError(f"Refusing to overwrite existing target: {output_path}")
 
+    negatives = skill_data.get("negative_triggers") or skill_data.get("negatives") or intent["near_neighbors"]
+    if isinstance(negatives, str):
+        negatives = [negatives]
+    trigger_cases = (
+        {"positive": intent["triggers"], "negative": list(negatives), "near_neighbor": intent["near_neighbors"]}
+        if intent["triggers"] and negatives
+        else None
+    )
     paths = save_skill(
         content,
         generate_manifest(skill_data),
         output_path,
         interface=generate_interface(skill_data),
-        trigger_cases={"positive": intent["triggers"], "negative": intent["near_neighbors"], "near_neighbor": intent["near_neighbors"]} if intent["triggers"] or intent["near_neighbors"] else None,
+        trigger_cases=trigger_cases,
     )
     findings = validate_skill(output_path)
     errors = [item for item in findings if item["severity"] == "error"]

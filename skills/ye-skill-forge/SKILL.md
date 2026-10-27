@@ -1,9 +1,9 @@
 ---
 name: ye-skill-forge
-description: 创建、审查、改进和维护可复用的 Agent Skill 或多 Skill 包。用于从想法与材料提炼方法、设计职责和交接、生成文件、验证行为及跨应用交付，也可介绍 Ye 的使用方式或按用户要求研究同类 Skill；不作为目标 Skill 或子 Agent 的运行调度器。
+description: 创建、审查、改进和维护可复用的 Agent Skill 或多 Skill 包。用于从想法与材料提炼方法、从第一性原理诊断根因并精修重构、设计职责和交接、生成文件、验证行为及跨应用交付，也可介绍 Ye 的使用方式或按用户要求研究同类 Skill；不作为目标 Skill 或子 Agent 的运行调度器。
 metadata:
   author: Ye
-  version: "2.4.1"
+  version: "2.5.0"
   language: zh-CN
 ---
 
@@ -11,7 +11,7 @@ metadata:
 
 把用户意图和真实材料变成最小、完整、可使用、可验证的 Skill。用模型理解领域方法和设计决策，用脚本检查确定性约束；模板只提供骨架，不能替代领域工作流。衡量“更好”的依据是用户要得到的结果、稳定可复用的方法和真实使用证据。
 
-Ye 的主要职责是创建、审查、改进和维护 Skill。可以设计编排规则、交接契约并验证产物；实际业务、子 Skill 加载和可选委派由宿主 Agent 执行。CLI 不启动子 Agent、不执行目标业务、不提供任务调度引擎。验证中执行代表性业务案例仅用于检验 Skill。
+Ye 负责创建、审查、改进和维护 Skill。可以设计编排规则、交接契约并验证产物；实际业务、子 Skill 加载和可选委派由宿主 Agent 执行，CLI 不提供运行调度引擎。操作其他目标 Skill 时，无需读取 Ye 自身的 `core/`、`tests/` 源码或无关 `examples/`。
 
 ## 选择工作模式
 
@@ -19,9 +19,9 @@ Ye 的主要职责是创建、审查、改进和维护 Skill。可以设计编�
 | --- | --- | --- |
 | 模糊想法或只有功能列表 | 澄清 | 用户结果候选、关键不确定性、最小下一步 |
 | 方向明确，需要设计 | 设计 | 职责、触发、输入输出、边界、验证计划 |
-| 开始创建、修改或重构 | 构建 | 实际文件、具体示例、验证结果 |
+| 开始创建、修改或重构 | 构建 / 精修 | 实际文件、具体示例、验证结果 |
 | 审查、比较、准备交付 | 审查 | 按严重度排序的发现、证据和缺口 |
-| 失败反馈、吸收材料、自进化 | 进化 | 根因假设、资产决策、实际改动或提案、回归和回滚 |
+| 失败反馈、吸收材料、自进化 | 进化 | 根因机制、资产决策、实际改动或提案、回归和回滚 |
 | 重复规则、过期资源、依赖变化 | 维护 | 复用、合并、删除或更新决策及受影响行为验证 |
 
 复合请求顺序执行：审查并优化要完成审查和本地修改；分析失败并更新要完成回归。用户只要分析时不写源文件。请求已授权的可逆本地修改不需要再次确认。安装、外部发布和传播按用户已有授权范围执行。
@@ -32,7 +32,7 @@ Ye 的主要职责是创建、审查、改进和维护 Skill。可以设计编�
 
 目标明确时直接进入对应模式；只补会影响结果的缺口。每次不重复展示功能菜单，也不为了介绍可选能力打断工作。先例研究在用户明确选择时开展，跨平台与完整工程门禁按实际需求启用。
 
-## 先找到真正任务（用户结果与输入）
+## 先找到真正任务与边界（用户结果与输入）
 
 读用户材料和现有目标，区分交付形式与真正要稳定复用的结果。用简报约束设计：
 
@@ -47,13 +47,13 @@ Ye 的主要职责是创建、审查、改进和维护 Skill。可以设计编�
 - 真正职责仍不清楚时保持 `clarify`；低风险的名称、格式和环境细节可以作为假设，避免为了填表反复追问。少数关键问题仍未解决时继续澄清，不因固定轮数而冒充理解。
 - 创建前查看用户提供或当前项目可见的相邻 Skill 和已有资产。同一职责优先改进或复用；单次任务不强制包装成 Skill。
 
-详细交互和简报字段见 [methods/intent.md](methods/intent.md)，领域方法设计见 [methods/domain-design.md](methods/domain-design.md)。`intent` 是字段检查助手，不具备领域推理能力；模型负责把用户目标、材料和已有做法转成可执行设计。设计或修正 description、触发边界时读 [methods/trigger-engineering.md](methods/trigger-engineering.md)。
+详细交互和简报字段见 [methods/intent.md](methods/intent.md)，领域方法设计见 [methods/domain-design.md](methods/domain-design.md)。`intent` 是字段检查助手，模型负责把用户目标、材料和已有做法转成可执行设计。设计或修正 description、触发边界时读 [methods/trigger-engineering.md](methods/trigger-engineering.md)。
 
 ## 可选先例研究
 
 默认从用户材料和已有资产设计。用户提供同类 Skill 参考，或明确选择先例研究时，读 [methods/prior-art.md](methods/prior-art.md)：指定参考只读指定材料，明确要求搜索、比较或借鉴外部同类方案时才扩展搜索。方向不清时可说明研究能解决的具体不确定性，让用户选择；未选择不自动搜索，也不影响准备度或交付门禁。
 
-先例用于提出和检验方案，不接管用户目标；允许研究后全部舍弃。完成任务必需的领域资料、事实核查和工具文档按任务需要读取，不受同类 Skill 搜索开关限制。宿主负责研究，CLI 不提供目录搜索器。
+先例用于提出和检验方案，不接管用户目标；允许研究后全部舍弃。完成任务必需的领域资料、事实核查和工具文档按任务需要读取，不受同类 Skill 搜索开关限制。
 
 ## 选择最小合适形态
 
@@ -67,63 +67,46 @@ Ye 的主要职责是创建、审查、改进和维护 Skill。可以设计编�
 
 以满足完整任务为下限再减少结构：必要的决策分支、工具、状态、失败恢复和交接应在第一版覆盖。只有用户明确接受原型或缩小范围时才交付局部能力，并说明缺口。选择单入口不限制方法深度，开放式创作与判断保留合理自由度。
 
-组合前读 [methods/composition.md](methods/composition.md)。完整案例见 [examples/research-package/](examples/research-package/)；按当前任务选择相关案例，不照搬无关流程。
-
-多 Skill 不要求多 Agent：主 Agent 可以按阶段读取子 Skill 并顺序完成。交付时提供明确入口和相对于声明文件的资源路径，不假设客户端递归发现子 Skill；原生调用、并行和子 Agent 都是宿主的可选能力。
+组合前读 [methods/composition.md](methods/composition.md)。完整案例见 [examples/research-package/](examples/research-package/)；按当前任务选择相关案例，不照搬无关流程。多 Skill 可由主 Agent 按阶段顺序读取完成，交付时提供明确入口和相对于声明文件的资源路径，不假设客户端递归发现子 Skill。
 
 ## 根据宿主能力工作
 
-先确认当前可用的材料读取、文件编辑、脚本执行和验证能力。只有读取能力时给出设计或审查；有编辑能力才交付文件，有脚本执行能力才运行 CLI。没有独立执行或客户端环境时报告行为验证缺口，不以静态检查补充虚构的运行结果。不依赖固定工具名、模型、shell 或多 Agent 功能；使用当前环境可用的等价工具。
-
-工程 CLI 需要 Python 3.10+ 和 [requirements.txt](requirements.txt) 中的 PyYAML；缺少依赖时报告工程检查缺口，在已有安装授权内使用 `python -m pip install -r <ENGINE_ROOT>/requirements.txt`。不以工具不可用为由跳过仍可完成的设计或审查。
+先确认当前可用的材料读取、文件编辑、脚本执行和验证能力。只有读取能力时给出设计或审查；有编辑能力才交付文件，有脚本执行能力才运行 CLI。不依赖固定工具名、模型、shell 或多 Agent 功能；使用当前环境可用的等价工具。工程 CLI 需要 Python 3.10+ 和 [requirements.txt](requirements.txt) 中的 PyYAML；缺少依赖或执行环境时报告具体验证缺口，不以工具不可用为由跳过设计或审查。
 
 默认交付一份完整的通用 Skill 源目录，不在开场询问应用包选择，不默认编译或复制 Codex、Claude Code、generic 三份产物。核心工作流使用 Agent Skills 的共用结构；允许保留或按实际用途添加 `agents/openai.yaml` 等可并存的平台增强文件，其调用策略、权限和依赖只在对应宿主中生效。
 
-用户明确要求应用专门适配时读 [methods/portability.md](methods/portability.md)，按需使用 `codex`、`claude-code` 或 `generic`。一开始已指定应用或职责依赖应用原生能力时，在设计阶段处理相应约束。无需转换时交付同一目录及安装说明；需要转换时从同一源派生目标包，说明实际差异和客户端验证缺口。可选目标清单不代表默认交付或已验证兼容；`adapter.json` 只是 Ye 的适配记录。适配器生成入口、元数据和安装计划，不修改客户端设置或安装副本。
+用户明确要求应用专门适配时读 [methods/portability.md](methods/portability.md)，按需使用 `codex`、`claude-code` 或 `generic`。一开始已指定应用或职责依赖应用原生能力时，在设计阶段处理相应约束。无需转换时交付同一目录及安装说明；需要转换时从同一源派生目标包，说明实际差异和客户端验证缺口。适配器生成入口、元数据和安装计划，不修改客户端设置或安装副本。
 
-## 创建和改进文件（工作流）
+## 创建文件与工作流
 
 1. **锁定路径和基线**：区分运行 Ye 的 `ENGINE_ROOT`、用户授权维护的 `TARGET_ROOT`、生成输出和运行状态。读取已有文件并保留用户改动。新 Skill 优先写入用户指定路径，否则使用项目 `.ye/skills/<name>/`；不得把 Ye 源目录或安装目录当作子 Skill 的默认父目录。改 Ye 本身以用户授权的源仓库为目标，不自动同步安装副本。
-2. **设计先于模板**：从材料中区分稳定决策、确定性处理、案例事实和临时补救，把有效方法写成适用条件、判断依据、行动、失败处理和完成证据。再写 description、输出契约和必要资源。只加入会改变行为的规则，不为简单 Skill 增加角色、报告或配置负担。
-3. **产生可执行资产**：写完成的 `SKILL.md` 和实际需要的引用、脚本、示例；沿用 Ye 工程约定时同时生成 manifest 与 interface。manifest 的假设、职责和入口保持一致。保留已设计的 description 并审查其准确性，删除不适用的模板章节；不要给生成 Skill 默认复制 Ye 的能力列表或替用户决定许可证。
-4. **验证并交付**：运行结构检查、实际脚本 smoke test，以及代表性正例、近邻负例和原成功例。复杂行为尽量用模型重放、实际客户端或独立评审；将完整行为证据绑定当前源摘要后运行 `behavior-evidence` 记录，保留失败和未执行项。没有可用执行环境就保留明确缺口。静态通过不能证明输出更好。
+2. **设计先于模板**：从材料中区分稳定决策、确定性处理、案例事实和临时补救，把有效方法写成 `适用条件 -> 判断依据 -> 行动 -> 失败处理 -> 完成证据`。再写 description、输出契约和必要资源。只加入会改变行为的规则，不为简单 Skill 增加角色、报告或配置负担。
+3. **产生可执行资产**：写完成的 `SKILL.md` 和实际需要的引用、脚本、示例；沿用 Ye 工程约定时同时生成 manifest 与 interface，保持假设、职责和入口一致。保留已设计的 description 并审查其准确性，删除不适用的模板章节；不默认复制 Ye 的能力列表或替用户决定许可证。
+4. **验证并交付**：运行结构检查、实际脚本 smoke test，以及代表性正例、近邻负例和原成功例。复杂或高风险行为按需运行 `behavior-evidence` 绑定当前源摘要记录真实观察，保留失败和未执行项。
 
-`create` 和 `package-init` 是骨架命令。缺少具体信息时结果只能标为 draft/scaffold；完整生成可使用 `create --brief-file ... --require-ready`。检查输出是否仍含泛化占位指令，替换为真实领域流程后再称为完成。
+`create` 和 `package-init` 是骨架命令；完整生成可使用 `create --brief-file ... --require-ready`，把泛化占位指令替换为真实领域流程后再称为完成。审查时读 [methods/semantic-review.md](methods/semantic-review.md)，沿具体输入检查矛盾、缺失前置条件、资源可达性和流程断点，说明触发请求、错误行为、对应位置和验证方式。
 
-审查和重大修改时读 [methods/semantic-review.md](methods/semantic-review.md)。结构清单之后，沿具体输入检查矛盾、缺失前置条件、资源可达性和流程断点。发现必须说明触发请求、错误行为、对应位置和验证方式；不要用标题齐全替代方法有效性。
+## 第一性原理精修、重构与进化
 
-## 两种进化对象
+修改或改进已有 Skill 时，读 [methods/root-analysis.md](methods/root-analysis.md)，严格遵循**第一性原理修改三准则**：
 
-- **目标 Skill / Skill 包**：修复失败对应的规则、示例、资源、脚本或交接契约。
-- **Ye 自身**：只有同类失败揭示可复用的生成、澄清、评测或交付机制缺口时，才改对应方法、模板或实现，并补回归。一个子 Skill 的个例不能直接变成所有 Skill 的通用规则。修改 Ye 需要明确授权；本地已授权的自维护直接完成，传播到其他 Skill 或安装副本另按范围判断。
+1. **机制优于禁令**：先追问模型为何偏离（信息流顺序倒置如先下结论后找依据、多处指令冲突、注意力被背景废话稀释，还是缺少可分叉的判断锚点）。**能通过调整步骤顺序、输入输出结构或删掉干扰词解决的，绝不新增“禁止/注意/不要”等补丁式警告**。
+2. **零防御与零免责噪音**：严禁向目标 Skill 注入“仅供参考、不代表最终结论、需注意局限性”等免责性或自我辩护话术；只保留会直接改变模型判断或输出字段的指令。
+3. **原位替换与熵减优先**：优先采用 `delete`（删空话与重复规则）和 `merge / rewrite`（原位合并重写，将个案事实抽象为通用判断条件），防止提示词越改越肿。
 
-读 [methods/evolution.md](methods/evolution.md)。先分开观察和根因假设，重审根问题，检查最近已有资产，再选择 `create / merge / discard`。资产检索助手按文件名匹配，必须阅读内容核实，不能把它当语义检索。
-
-`improve` 生成建议；`evolve record` 保存提案。已授权的改进要继续落到文件。可由作者直接做保守修改，也可使用 `evolve apply` 预览显式变更集，提供版本绑定的回放记录后用 `--apply` 应用；修改 Ye 自身另需 `--allow-self-edit`。应用保存旧文件，可用 `evolve rollback` 恢复；存在后续修改时拒绝覆盖。
-
-部署状态可为 `provisional / accepted / quarantined / rejected`。本地应用默认仍为 provisional；accepted 需与风险匹配的行为证据。反馈文本、遥测次数和同一模型自评不能单独证明效果提升，也不能称为独立评审。原始私有对话和回放保留在本地状态，不进入分发包。
-
-维护时读 [methods/operations.md](methods/operations.md)。同时考虑合并和删除无效规则；依赖、触发或交接变化时验证受影响路径，保留用户改动及有效行为。
+按场景选择轻量或受控路径（常规修改无需串联读取多个方法文件）：
+- **日常局部精修与诊断式重构（默认轻量路径）**：直接阅读目标 Skill -> 按 [methods/root-analysis.md](methods/root-analysis.md) 定位机制根因并原位改写 -> 运行 `validate.py` 并用原问题、近邻边界、原成功行为核对，无需创建 `evolve` 提案账本。维护清理另见 [methods/operations.md](methods/operations.md)。
+- **受控账本进化（高风险或需留痕回滚）**：读 [methods/evolution.md](methods/evolution.md)（需提案格式时再读 [methods/improvement-guide.md](methods/improvement-guide.md)）。`improve` 生成建议，`evolve record` 保存提案，`evolve apply` 预览变更集并在提供版本绑定回放后用 `--apply` 写入，可用 `evolve rollback` 恢复。
+- **两种进化对象**：修目标 Skill 只改该目标；只有跨案例暴露通用机制缺口且获明确授权时才改 Ye 自身（`evolve apply` 另需 `--allow-self-edit`）并补回归。
 
 ## 按风险增加门禁（验证）
 
-最小路径是意图、具体资产、结构与行为验证。`review` 按成熟度选择检查，只保存综合结果；只读检查用 `--no-report`。静态 `checked` 不表示行为通过，发布预检保持完整深度。使用单一事实源生成报告和适配文件。
+最小路径是意图、具体资产、结构与代表性案例验证。`review` 按成熟度（`local / production / distribution`）选择检查，只写综合报告；只读检查用 `--no-report`。工具说明见 `python <ENGINE_ROOT>/scripts/ye.py --help`。
 
-- 个人第一版：结构、边界、基本案例；缺少历史数据时说明证据缺口，仍覆盖约定任务。用户只要骨架或原型时可交付 scaffold。
-- 生产使用：额外检查真实触发/输出行为、脚本运行、信任与权限、owner 和维护周期。
-- 团队分发：按需增加 IR、目标适配、完整资源打包、临时安装和版本迁移；多 Skill 包必须检查所有子 Skill。
-- 高权限或外部发布：额外检查授权、审查证据、回滚和发布边界。
-
-工具说明见 `python <ENGINE_ROOT>/scripts/ye.py --help`。`review` 同时支持单 Skill 和包；`package-validate`、`route-eval`、`handoff-check` 检查组合结构。结构门禁通过、安装模拟通过和真实客户端效果是不同结论。
-
-需要交付时读 [methods/release.md](methods/release.md) 和 [methods/portability.md](methods/portability.md)；需要完整门禁时读 [methods/lifecycle.md](methods/lifecycle.md)。选择依据见 [methods/design-selection.md](methods/design-selection.md)，领域设计见 [methods/domain-design.md](methods/domain-design.md)，证据规则见 [methods/evidence.md](methods/evidence.md)。不要默认加载所有参考文件。
-
-比较效果时读 [methods/behavior-testing.md](methods/behavior-testing.md)。固定完整案例集并保存通过、失败和未执行项，区分同案例比较与单次通过。宿主或评审者提供实际观察，Ye 只校验记录、版本和比较条件，不自动执行实验。
-
-维护 Ye 的生成方法时按该文件验证两层：Ye 的需求与产物，以及生成 Skill 在新会话中处理新输入的效果。正常使用只增加与任务风险匹配的验证；完整基准用于维护迭代，不成为每次创建的必经步骤。
+- **个人与局部精修**：结构、边界、基本案例核对；不强制建立完整基准或运行发布门禁。
+- **生产与团队分发**：按需读 [methods/lifecycle.md](methods/lifecycle.md)、[methods/release.md](methods/release.md) 和 [methods/portability.md](methods/portability.md)，检查触发/输出行为、信任、IR、打包与安装模拟；多 Skill 包检查所有子组件。设计取舍见 [methods/design-selection.md](methods/design-selection.md)，证据与隐私边界见 [methods/evidence.md](methods/evidence.md)。
+- **同案例效果比较与元能力验证**：读 [methods/behavior-testing.md](methods/behavior-testing.md)。固定完整案例集并保存通过、失败和未执行项；维护 Ye 自身生成方法时分别验证生成资产与新会话中的实际使用效果。
 
 ## 完成标准
 
-总结必须独立可读：实际修改路径、解决的问题、保留行为、验证及证据来源、未验证部分、回滚方式。提案只称提案，骨架只称骨架；编译不等于兼容，门禁通过不等于发布。
-
-授权的文件和必要检查完成、没有已知范围内严重缺陷时停止；缺乏新证据的扩张列为候选改进，不为追求“完美”无限增加规则、功能或测试。
+总结独立说明：实际修改路径、解决的机制根因、保留行为、验证方式与证据来源、未验证部分及回滚方式。区分静态结构检查与真实运行观察；授权文件和必要检查完成、无已知范围内严重缺陷时即停止，不为追求形式完美无限叠加规则、报告或测试。

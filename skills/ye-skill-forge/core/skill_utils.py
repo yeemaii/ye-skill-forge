@@ -110,9 +110,23 @@ def validate_skill(skill_path):
                 else:
                     if design.get("root_confirmed") is not True:
                         add("warning", "intent-unconfirmed", "Root problem is provisional; this is an authoring scaffold, not a confirmed design.")
-                    for field in ("root_problem", "target_user", "triggers", "near_neighbors", "success_signals"):
+                    for field in ("root_problem", "user_result", "triggers", "near_neighbors", "success_signals"):
                         if not design.get(field):
                             add("warning", "design-missing", f"manifest.design.{field} lacks concrete design evidence.")
+            if isinstance(manifest, dict) and "package_type" in manifest and manifest.get("package_type") not in {"skill-package", "skill-family"}:
+                add("error", "package-type", "manifest.json package_type must be skill-package or skill-family.")
+
+    package_file = root / "package.json"
+    if package_file.exists():
+        try:
+            package_data = json.loads(package_file.read_text(encoding="utf-8-sig"))
+        except (OSError, json.JSONDecodeError) as exc:
+            add("error", "package-json", f"package.json is not valid JSON: {exc}")
+        else:
+            if not isinstance(package_data, dict):
+                add("error", "package-shape", "package.json must contain a JSON object.")
+            elif "package_type" in package_data and package_data.get("package_type") not in {"skill-package", "skill-family"}:
+                add("error", "package-type", "package.json package_type must be skill-package or skill-family.")
 
     interface_file = root / "agents" / "interface.yaml"
     if interface_file.exists():

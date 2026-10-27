@@ -25,11 +25,12 @@ SECRET_PATTERNS = (
 ENV_SECRET_NAME = re.compile(r"(?:^|_)(?:API_?KEY|ACCESS_KEY|PRIVATE_KEY|SECRET|TOKEN|PASSWORD)(?:_|$)", re.IGNORECASE)
 ENV_PLACEHOLDER = re.compile(r"^(?:your[-_].+|replace[-_].+|change[-_]?(?:me|this)|placeholder|example|sample|dummy|<[^>]+>|\$\{[^}]+\})$", re.IGNORECASE)
 CAPABILITY_PATTERNS = {
-    "subprocess": re.compile(r"\b(?:subprocess|os\.system|os\.popen)\b"),
-    "network": re.compile(r"\b(?:requests|urllib|httpx|socket)\b|https?://"),
-    "file_write": re.compile(r"\.(?:write_text|write_bytes)|\bopen\([^\n]+['\"]w"),
-    "interactive": re.compile(r"\b(?:input|prompt_toolkit)\s*\("),
+    "subprocess": re.compile(r"(?m)^\s*(?:import|from)\s+subprocess\b|\b(?:subprocess\.\w+|os\.system|os\.popen)\s*\("),
+    "network": re.compile(r"(?m)^\s*(?:import|from)\s+(?:requests|urllib|httpx|socket|aiohttp)\b|\b(?:requests\.(?:get|post|put|delete|head|patch|request|Session)|urllib\.request|httpx\.\w+|socket\.socket)\b"),
+    "file_write": re.compile(r"\.(?:write_text|write_bytes)\s*\(|\bopen\([^\n]+['\"][wa]"),
+    "interactive": re.compile(r"(?<!\.)\binput\s*\(|\bprompt_toolkit\b"),
 }
+ARGPARSE_PATTERN = re.compile(r"(?m)^\s*(?:import|from)\s+argparse\b|\bargparse\.ArgumentParser\b")
 
 
 def utc_now():
@@ -246,12 +247,13 @@ def trust_audit(root, *, persist=True):
         text = path.read_text(encoding="utf-8-sig", errors="replace")
         rel = path.relative_to(root).as_posix()
         file_caps = [name for name, pattern in CAPABILITY_PATTERNS.items() if pattern.search(text)]
+        has_argparse = bool(ARGPARSE_PATTERN.search(text))
         capabilities.update(file_caps)
-        scripts.append({"path": rel, "capabilities": file_caps, "argparse": "argparse" in text})
+        scripts.append({"path": rel, "capabilities": file_caps, "argparse": has_argparse})
         for pattern in SECRET_PATTERNS:
             if pattern.search(text):
                 findings.append({"severity": "block", "code": "secret-pattern", "path": rel, "message": "发现疑似秘密或私钥模式"})
-        if path.parent == root / "scripts" and "argparse" not in text and "SCRIPT_INTERFACE = \"internal-module\"" not in text:
+        if path.parent == root / "scripts" and not has_argparse and "SCRIPT_INTERFACE = \"internal-module\"" not in text:
             findings.append({"severity": "warn", "code": "help-surface", "path": rel, "message": "脚本未声明 argparse 或 internal-module 接口"})
     for path, rel in iter_source_files(root):
         # 部署配置和引用中的秘密同样会进入分发面；tests 中的虚构凭据是审计回归素材。
@@ -610,18 +612,39 @@ def drift_report(root):
     return write_report(root, "adoption_drift", result, "采用与漂移报告")
 
 
-def atlas(workspace):
+def _atlas_terms(description):
+    text = str(description or "").lower()
+    terms = set(re.findall(r"[a-z0-9]{2,}", text))
+    for chunk in re.findall(r"[\u4e00-\u9fff]{2,}", text):
+        parts = [p for p in re.split(r"(?:不要|不能|用于|使用|处理|进行|通过|可以|需要|或者|以及|并且|当用户|如果|什么|这些|那个|[的了和与或及在中对将把为并时不])+", chunk) if len(p) >= 2]
+        for part in parts or [chunk]:
+            if 2 <= len(part) <= 6:
+                terms.add(part)
+            for idx in range(len(part) - 1):
+                bigram = part[idx:idx + 2]
+                if bigram not in {"技能", "任务", "请求", "用户", "结果", "文件", "内容"}:
+                    terms.add(bigram)
+    return sorted(terms)
+
+
+def atlas(workspace, *, persist=True):
     workspace = Path(workspace).resolve()
     skills = []
     for skill_file in workspace.rglob("SKILL.md"):
+        try:
+            rel_parts = skill_file.relative_to(workspace).parts
+        except ValueError:
+            rel_parts = skill_file.parts
         if "ye-skill-forge" in skill_file.parts or "yao-meta-skill-custom" in skill_file.parts:
+            continue
+        if any(part in GENERATED_DIRS or part == "examples" for part in rel_parts[:-1]):
             continue
         try:
             _root, _file, metadata, _front, _body = load_skill(skill_file.parent)
         except Exception:
             continue
-        words = set(re.findall(r"[a-z0-9\u4e00-\u9fff]{2,}", str(metadata.get("description", "")).lower()))
-        skills.append({"path": str(skill_file.parent), "name": metadata.get("name"), "description": metadata.get("description", ""), "terms": sorted(words)})
+        terms = _atlas_terms(metadata.get("description", ""))
+        skills.append({"path": str(skill_file.parent), "name": metadata.get("name"), "description": metadata.get("description", ""), "terms": terms})
     collisions = []
     for index, left in enumerate(skills):
         for right in skills[index + 1:]:
@@ -629,6 +652,7 @@ def atlas(workspace):
             if len(overlap) >= 3:
                 collisions.append({"left": left["name"], "right": right["name"], "overlap": overlap})
     result = {"ok": True, "skills": skills, "collisions": collisions, "status": "portfolio-signal-only", "evidence_status": "static-metadata"}
-    report_dir = workspace / "reports"
-    write_json(report_dir / "skill_atlas.json", result)
+    if persist:
+        report_dir = workspace / "reports"
+        write_json(report_dir / "skill_atlas.json", result)
     return result

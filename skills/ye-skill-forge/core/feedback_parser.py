@@ -36,6 +36,13 @@ class FeedbackParser:
         if isinstance(inputs, str):
             inputs = [inputs]
 
+        self.feedback = {
+            "issues": [],
+            "examples": [],
+            "good": [],
+            "suggestions": [],
+        }
+
         for input_item in inputs:
             # 处理文件引用（@filename）
             if self._is_file_reference(input_item):
@@ -104,6 +111,7 @@ class FeedbackParser:
         explicit_pattern = re.compile(r"^(?:问题|bug|错误|issue|problem)[:：]\s*(.+)$", re.IGNORECASE)
         non_issue_label = re.compile(r"^(?:好的|保留|正确|优点|good|keep|correct|建议|希望|应该|可以改成|改进|suggestion)[:：]", re.IGNORECASE)
         broad_pattern = re.compile(r"(?:不应该|太|缺少|没有|too\b|missing\b|shouldn't\b)", re.IGNORECASE)
+        positive_guard = re.compile(r"(?:没有任何?(?:问题|错误|报错|异常|故障|缺陷)|无任何?(?:问题|报错)|太(?:好了?|棒|赞|强|快|准|实用|方便|稳定|满意|喜欢|感谢))", re.IGNORECASE)
 
         for raw_line in content.splitlines():
             segments = re.split(rf"(?:(?<=[。！？.!?])\s*|\s+)(?={label_pattern}[:：])", raw_line)
@@ -113,7 +121,7 @@ class FeedbackParser:
                 if explicit:
                     description = explicit.group(1).strip()
                     original_type = "explicit"
-                elif not non_issue_label.match(line) and broad_pattern.search(line):
+                elif not non_issue_label.match(line) and broad_pattern.search(line) and not positive_guard.search(line):
                     description = line
                     original_type = "inferred"
                 else:
@@ -178,8 +186,9 @@ class FeedbackParser:
         """
         examples = []
 
+        stop_labels = r"(?:User|用户|输入|问题|bug|错误|issue|problem|好的|保留|正确|优点|good|keep|correct|建议|希望|应该|可以改成|改进|suggestion)[:：]"
         # 对话格式
-        conversation_pattern = r"(?:User|用户)[:：]\s*(.+?)\s*(?:Agent|助手|AI)[:：]\s*(.+?)(?=(?:User|用户):|$)"
+        conversation_pattern = rf"(?:User|用户)[:：]\s*(.+?)\s*(?:Agent|助手|AI)[:：]\s*(.+?)(?={stop_labels}|$)"
         matches = re.findall(conversation_pattern, content, re.DOTALL | re.IGNORECASE)
         for user_input, agent_output in matches:
             examples.append({
@@ -189,7 +198,7 @@ class FeedbackParser:
             })
 
         # 输入输出格式
-        io_pattern = r"输入[:：]\s*(.+?)\s*输出[:：]\s*(.+?)(?=输入|$)"
+        io_pattern = rf"输入[:：]\s*(.+?)\s*输出[:：]\s*(.+?)(?={stop_labels}|$)"
         matches = re.findall(io_pattern, content, re.DOTALL)
         for input_text, output_text in matches:
             examples.append({
@@ -199,7 +208,7 @@ class FeedbackParser:
             })
 
         # 期望格式
-        expect_pattern = r"期望[:：]\s*(.+?)(?=实际|$)"
+        expect_pattern = rf"期望[:：]\s*(.+?)(?=实际|{stop_labels}|$)"
         matches = re.findall(expect_pattern, content, re.DOTALL)
         for expected in matches:
             examples.append({

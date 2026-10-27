@@ -440,6 +440,62 @@ class MetaTests(unittest.TestCase):
             self.assertFalse(result["review"]["behavior_verified"])
             self.assertEqual(next(gate for gate in result["review"]["gates"] if gate["key"] == "behavior")["status"], "warn")
 
+    def test_trust_audit_ignores_english_requests_noun_and_flags_real_imports(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "notes"
+            create_package(brief(), root)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            (scripts / "check.py").write_text(
+                'import argparse\nparser = argparse.ArgumentParser(description="State nearby requests that should remain out of scope.")\nurl = "https://example.com"\n',
+                encoding="utf-8",
+            )
+            report = trust_audit(root, persist=False)
+            self.assertTrue(report["ok"])
+            self.assertEqual(report["capabilities"], [])
+            self.assertEqual(report["findings"], [])
+            (scripts / "net.py").write_text("import argparse\nimport requests\n", encoding="utf-8")
+            report_with_net = trust_audit(root, persist=False)
+            self.assertIn("network", report_with_net["capabilities"])
+
+    def test_cli_create_brief_overrides_and_advanced_template_gate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            brief_file = Path(temp) / "brief.json"
+            write_json(brief_file, {**brief(), "author": "BriefAuthor", "references": ["docs/a.md", "docs/b.md"]})
+            target = Path(temp) / "notes"
+            completed = subprocess.run(
+                [sys.executable, str(ROOT / "scripts/ye.py"), "create", "Notes", "--slug", "notes", "--brief-file", str(brief_file), "--author", "CliAuthor", "--output-dir", str(target)],
+                capture_output=True, text=True, encoding="utf-8",
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["owner"], "CliAuthor")
+            skill_text = (target / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("- docs/a.md\n- docs/b.md", skill_text)
+            self.assertNotIn("['docs/a.md'", skill_text)
+
+            bad_adv = Path(temp) / "adv"
+            failed = subprocess.run(
+                [sys.executable, str(ROOT / "scripts/ye.py"), "create", "Adv", "--slug", "adv", "--job", "复杂诊断", "--template", "advanced", "--architecture", "组件A", "--output-dir", str(bad_adv)],
+                capture_output=True, text=True, encoding="utf-8",
+            )
+            self.assertEqual(failed.returncode, 2)
+            self.assertFalse(bad_adv.exists())
+
+    def test_evolution_accepts_v2_status_passed_and_matches_relative_assets(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root, packet, plan, evidence, _original = self.evolution_fixture(temp)
+            replay = json.loads(evidence.read_text(encoding="utf-8"))
+            for case in replay["cases"]:
+                case.pop("passed", None)
+                case["status"] = "passed"
+            write_json(evidence, replay)
+            self.assertTrue(apply_evolution(root, packet, plan, evidence, apply=True)["applied"])
+            (root / "evals/output").mkdir(parents=True, exist_ok=True)
+            (root / "evals/output/cases.jsonl").write_text('{"input":"x","expected":"y"}\n', encoding="utf-8")
+            pkt = build_evidence_packet(root, FeedbackParser().parse("问题：输出格式太乱"))
+            self.assertTrue(any("evals/output/cases.jsonl" == item["path"] for item in pkt["nearest_assets"]))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,10 +8,12 @@
 
 ## 作者执行的闭环
 
-1. 捕获实际输入、期望和实际输出，分开观察与根因假设；整理反馈与提案字段时可读 [improvement-guide.md](improvement-guide.md)。
-2. 重开根问题；确认是任务本身变了，还是路由、检索、规则执行或工具失败；根因与取舍检查见 [root-analysis.md](root-analysis.md)。
-3. 阅读最近已有资产。`nearest_assets` 仅按文件名和关键词初筛，不提供语义正确性保证。
-4. 选择 create/merge/discard。已有同职责规则优先合并；正确规则被忽略时修复路由或资源读取，而非增加重复命令。
+常规局部修改、规则清理或重构直接按 [root-analysis.md](root-analysis.md) 原位精修并校验，无需启用下方 `evolve` 账本或串联读取多个方法文件。需要留存版本化提案、跨版本回放或受控回滚时执行以下闭环：
+
+1. 捕获实际输入、期望和实际输出，分开观察与根因假设；需要整理结构化提案字段时再读 [improvement-guide.md](improvement-guide.md)。
+2. 按 [root-analysis.md](root-analysis.md) 追问第一性原理根因（信息流顺序、指令冲突/稀释、判断锚点或工具边界），优先调整机制或删减合并，不叠加防御性警告和免责套话。
+3. 阅读最近已有资产。`nearest_assets` 仅按路径与关键词初筛，不提供语义正确性保证。
+4. 选择 create/merge/discard。已有同职责规则优先合并或原位重写；正确规则被忽略时修复路由或资源读取，而非增加重复命令。
 5. 已授权的改进落到文件，保留有效行为；回放原失败例、近邻负例和已有成功例。
 6. 保存证据和回滚点。provisional 是局部待验证，accepted 需与风险匹配的行为证据，quarantined 是隔离或回滚，rejected 是不采用。
 

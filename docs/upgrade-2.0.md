@@ -1,5 +1,16 @@
 # Ye Skill Forge 2.0 改造说明
 
+## 2.5.0 改进
+
+- 确立第一性原理局部精修与重构方法（`methods/root-analysis.md` 与 `SKILL.md`）：要求先追问信息流顺序、指令冲突/稀释与判断锚点，优先通过调整步骤顺序、输入输出契约或删减合并解决问题，禁止叠加“禁止/注意”补丁或向目标 Skill 注入免责与防御性废话。
+- 区分日常轻量精修与受控账本进化：常规局部修改直接读取 `methods/root-analysis.md` 原位改写并验证，砍掉 4~5 层二级文件跳转；声明操作其他目标 Skill 时无需读取 Ye 自身的 `core/`、`tests/` 源码。
+- 修复多 Skill 包在 `production / distribution / release-check` 下对 Router 和子 Skill 重复要求独立顶层 `trigger / output / registry / behavior` 资产的缺陷；包级治理统一在包根核验，子组件仅检查自身结构、信任及局部评测。
+- 修复 `trust_audit` 将英文名词 `requests` 和路径前缀 `"http://"` 误报为 `network` 高权限能力的问题；改为匹配真实导入与调用模式。
+- 对齐 `create` 与 `intent / validate` 契约：支持 `references` 列表转 Markdown 行、CLI 显式参数优先于 `--brief-file`、防止 `ye.py create --template advanced` 预填默认 `agents` 绕过必填校验。
+- 修复中文场景下 `atlas` 整句切词与扫描构建目录、`nearest_assets` 空格切词及路径匹配过窄、`FeedbackParser` 误判中文正向反馈与全角冒号前瞻、`evolve apply` 不接受版本 2 `status: "passed"`、Codex 适配对中文短描述强加英文前缀等问题，并补齐 Ye 自身 `manifest.json` 的 `design` 与 `Skill IR` 边界契约。
+
+验证：98 项自动化回归全部通过；`validate.py --strict`、`evaluate.py --strict`、`review . --no-report` 和 `git diff --check` 通过。
+
 ## 2.4.1 改进
 
 - 默认交付一份完整通用 Skill 源目录或其归档，开场不要求选择应用包，也不默认生成三份平台副本。用户已指定应用时直接纳入设计约束；需要专门转换时才派生目标包。

@@ -151,6 +151,19 @@ class ReviewExampleTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 materialize_example("note-cleanup", ROOT / "examples/test-copy")
 
+    def test_family_distribution_review_governed_at_package_root(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = materialize_example("research-package", Path(temp) / "research")
+            report = review_skill(root, profile="distribution", persist=False)
+            self.assertTrue(report["ok"])
+            children_gate = next(g for g in report["gates"] if g["key"] == "children")
+            self.assertEqual(children_gate["status"], "checked")
+            for child in children_gate["children"]:
+                self.assertEqual(child["warnings"], 0, child)
+                self.assertEqual(child["decision"], "pass")
+            registry_gate = next(g for g in report["gates"] if g["key"] == "registry")
+            self.assertEqual(registry_gate["status"], "checked")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -54,7 +54,7 @@ def generate_skill(skill_data, template_type="standard"):
         "{output_example}": skill_data.get("output_example", "有代表性的输出示例。"),
         "{exclusions}": exclusions_text or "- 不处理职责之外的请求",
         "{quality_standards}": skill_data.get("quality_standards") or "待作者明确可检查的成功条件（骨架）。",
-        "{references}": skill_data.get("references", "只在引用能解决真实歧义时加入。"),
+        "{references}": as_lines(skill_data.get("references"), "只在引用能解决真实歧义时加入。"),
         "{architecture_description}": skill_data.get("architecture", "只有工作流确实需要时才拆分组件。"),
         "{agent_definitions}": skill_data.get("agents", "除非独立工作能带来收益，否则使用单一角色。"),
         "{configuration_options}": skill_data.get("configuration", "只记录会改变行为的用户选项。"),

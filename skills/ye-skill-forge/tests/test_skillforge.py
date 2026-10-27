@@ -282,6 +282,16 @@ class SkillForgeTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 FeedbackParser().parse("@../outside.txt", base_dir=root)
 
+    def test_feedback_parser_resets_state_and_avoids_positive_chinese_false_positives(self):
+        parser = FeedbackParser()
+        first = parser.parse("问题：输出遗漏了引用")
+        self.assertEqual(len(first["issues"]), 1)
+        second = parser.parse("目前没有任何报错，运行太稳定了。\n用户：整理纪要\n助手：已整理\n问题：漏掉行动项日期")
+        self.assertEqual(len(second["issues"]), 1)
+        self.assertEqual(second["issues"][0]["description"], "漏掉行动项日期")
+        self.assertEqual(len(second["examples"]), 1)
+        self.assertEqual(second["examples"][0]["output"], "已整理")
+
 
 if __name__ == "__main__":
     unittest.main()

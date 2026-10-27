@@ -72,39 +72,55 @@ def command_evaluate(args):
 
 
 def command_create(args):
-    data = {
-        "name": args.slug,
-        "display_name": args.skill_name,
-        "author": args.author,
-        "job": args.job,
-        "template": args.template,
-        "input_description": args.input_description or "",
-        "output_format": args.output_format or "",
-        "workflow_steps": args.workflow_step or ["读取全部输入", "执行工作流", "按契约检查输出"],
-        "exclusions": args.exclude or [],
-        "quality_standards": "\n".join(f"- {item}" for item in (args.quality_check or [])),
-        "architecture": args.architecture or "",
-        "agents": args.agents or "使用单一执行角色；只有独立且可验证的工作才委派。",
-        "configuration": args.configuration or "无用户可选配置。",
-        "root_problem": args.root_problem or "",
-        "user_result": args.user_result or "",
-        "reusable_method": args.reusable_method or "",
-        "materials": args.material,
-        "tools": args.tool,
-        "permissions": args.permission,
-        "target_user": args.target_user or "",
-        "trigger_examples": args.trigger or [],
-        "near_neighbors": args.near_neighbor or [],
-        "success_signals": args.success_signal or [],
-        "root_confirmed": args.root_confirmed,
-    }
     try:
+        data = {}
         if args.brief_file:
             brief = read_json(args.brief_file, None)
             if not isinstance(brief, dict):
                 raise ValueError("--brief-file 需要有效 JSON 对象")
             data.update(brief)
-            data.update({"name": args.slug, "display_name": args.skill_name})
+        data["name"] = args.slug
+        data["display_name"] = args.skill_name
+        template = args.template or data.get("template") or "standard"
+        data["template"] = template
+        if args.author is not None:
+            data["author"] = args.author
+        else:
+            data.setdefault("author", "Ye")
+        for key, value in (
+            ("job", args.job),
+            ("input_description", args.input_description),
+            ("output_format", args.output_format),
+            ("workflow_steps", args.workflow_step),
+            ("exclusions", args.exclude),
+            ("architecture", args.architecture),
+            ("agents", args.agents),
+            ("configuration", args.configuration),
+            ("root_problem", args.root_problem),
+            ("user_result", args.user_result),
+            ("reusable_method", args.reusable_method),
+            ("materials", args.material),
+            ("tools", args.tool),
+            ("permissions", args.permission),
+            ("target_user", args.target_user),
+            ("trigger_examples", args.trigger),
+            ("near_neighbors", args.near_neighbor),
+            ("success_signals", args.success_signal),
+        ):
+            if value:
+                data[key] = value
+        if args.quality_check:
+            data["quality_standards"] = "\n".join(f"- {item}" for item in args.quality_check)
+        if args.root_confirmed:
+            data["root_confirmed"] = True
+        else:
+            data.setdefault("root_confirmed", False)
+        data.setdefault("workflow_steps", ["读取全部输入", "执行工作流", "按契约检查输出"])
+        data.setdefault("exclusions", [])
+        data.setdefault("quality_standards", "")
+        data.setdefault("configuration", "无用户可选配置。")
+        if template != "advanced":
+            data.setdefault("agents", "使用单一执行角色；只有独立且可验证的工作才委派。")
         if not data.get("job"):
             data["job"] = data.get("recurring_job", "")
         if args.require_ready and clarify(data)["next_action"] != "design":
@@ -172,7 +188,7 @@ def command_trust(args):
 
 def command_compile(args):
     try:
-        output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else None
+        output_dir = Path(args.output_dir).expanduser() if args.output_dir else None
         return emit(compile_targets(args.skill_dir, output_dir, args.target))
     except (ValueError, OSError, zipfile.BadZipFile) as exc:
         return emit({"ok": False, "error": str(exc)})
@@ -180,7 +196,7 @@ def command_compile(args):
 
 def command_package(args):
     try:
-        output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else None
+        output_dir = Path(args.output_dir).expanduser() if args.output_dir else None
         return emit(package_skill(args.skill_dir, output_dir, args.zip))
     except (ValueError, OSError, zipfile.BadZipFile) as exc:
         return emit({"ok": False, "error": str(exc)})
@@ -255,7 +271,7 @@ def command_evolve(args):
 
 
 def command_atlas(args):
-    return emit(atlas(args.workspace))
+    return emit(atlas(args.workspace, persist=not getattr(args, "no_report", False)))
 
 
 def command_review(args, quiet=False):
@@ -277,9 +293,9 @@ def command_release(args):
     install = None
     try:
         if args.package_dir:
-            package_dir = Path(args.package_dir).expanduser().resolve()
+            package_dir = Path(args.package_dir).expanduser()
             package = package_skill(args.skill_dir, package_dir, True)
-            install = install_simulate(args.skill_dir, args.package_dir)
+            install = install_simulate(args.skill_dir, package["archive"])
     except (ValueError, OSError, zipfile.BadZipFile) as exc:
         return emit({"ok": False, "error": str(exc), "review": review})
     review_ready = review_code == 0 and (not strict or not review.get("warnings"))
@@ -339,7 +355,7 @@ def build_parser():
     create.add_argument("--brief-file", help="消费 intent 简报，保留领域决策和假设")
     create.add_argument("--require-ready", action="store_true", help="用户结果/职责/输出/边界/成功条件不明确时拒绝生成")
     create.add_argument("--output-dir", default=None)
-    create.add_argument("--template", choices=("minimal", "standard", "advanced"), default="standard")
+    create.add_argument("--template", choices=("minimal", "standard", "advanced"), default=None)
     create.add_argument("--input-description")
     create.add_argument("--output-format")
     create.add_argument("--workflow-step", action="append")
@@ -359,7 +375,7 @@ def build_parser():
     create.add_argument("--trigger", action="append")
     create.add_argument("--near-neighbor", action="append")
     create.add_argument("--success-signal", action="append")
-    create.add_argument("--author", default="Ye")
+    create.add_argument("--author", default=None)
     create.set_defaults(func=command_create)
 
     improve = skill_parser("improve", "根据反馈生成改进提案")
@@ -394,6 +410,7 @@ def build_parser():
 
     atlas_parser = sub.add_parser("atlas", help="扫描多个 skill 的静态路由重叠")
     atlas_parser.add_argument("workspace", type=Path)
+    atlas_parser.add_argument("--no-report", action="store_true", help="只输出结果，不写报告文件")
     atlas_parser.set_defaults(func=command_atlas)
 
     package_validate = sub.add_parser("package-validate", help="验证 SkillPackage、Router 和子 Skill")
